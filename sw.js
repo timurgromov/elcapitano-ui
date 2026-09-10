@@ -1,11 +1,11 @@
-const CACHE = "elcapitano-task-register-v8";
+const CACHE = "elcapitano-task-register-v9";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=20260911-4",
-  "./app.js?v=20260911-4",
-  "./manifest.webmanifest?v=20260911-4",
-  "./icon.svg?v=20260911-4",
+  "./styles.css?v=20260911-5",
+  "./app.js?v=20260911-5",
+  "./manifest.webmanifest?v=20260911-5",
+  "./icon.svg?v=20260911-5",
 ];
 
 self.addEventListener("install", (event) => {

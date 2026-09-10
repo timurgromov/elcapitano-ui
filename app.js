@@ -17,7 +17,12 @@ const VIEW_META = {
   analytics: ["СВОДКА", "Аналитика"],
 };
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => {
+  const date = new Date();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return date.getFullYear() + "-" + month + "-" + day;
+};
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + "-" + Math.random());
 
 const demoState = () => ({
@@ -166,6 +171,9 @@ function statusOptions(selected) {
 
 function taskRow(task, index, listId) {
   const done = task.status === "done";
+  const completionDate = done
+    ? '<label class="completion-date"><span>Готово</span><input type="date" value="' + escapeHtml(task.completedAt || "") + '" data-task-completed-at="' + escapeHtml(task.id) + '" aria-label="Дата выполнения задачи" /></label>'
+    : "";
   return [
     '<article class="task-row' + (done ? " is-done" : "") + '" data-task-id="' + escapeHtml(task.id) + '">',
     '<div class="order-cell">',
@@ -173,7 +181,7 @@ function taskRow(task, index, listId) {
     '<span class="task-number">' + (index + 1) + "</span>",
     "</div>",
     '<button class="task-check' + (done ? " is-complete" : "") + '" type="button" data-toggle-complete="' + escapeHtml(task.id) + '" aria-label="' + (done ? "Вернуть задачу в работу" : "Отметить задачу выполненной") + '">✓</button>',
-    '<div class="task-title"><strong class="editable-name" contenteditable="plaintext-only" role="textbox" aria-multiline="false" aria-label="Редактировать название задачи" spellcheck="true" data-edit-task-title="' + escapeHtml(task.id) + '">' + escapeHtml(task.title) + "</strong><small>" + escapeHtml(task.source || "Ручной ввод") + "</small></div>",
+    '<div class="task-title"><strong class="editable-name" contenteditable="plaintext-only" role="textbox" aria-multiline="false" aria-label="Редактировать название задачи" spellcheck="true" data-edit-task-title="' + escapeHtml(task.id) + '">' + escapeHtml(task.title) + '</strong><div class="task-meta"><small>' + escapeHtml(task.source || "Ручной ввод") + "</small>" + completionDate + "</div></div>",
     '<label class="inline-field"><span class="sr-only">Проект задачи</span><select data-task-project="' + escapeHtml(task.id) + '">' + projectOptions(task.projectId) + "</select></label>",
     '<label class="inline-field"><span class="sr-only">Статус задачи</span><select data-task-status="' + escapeHtml(task.id) + '">' + statusOptions(task.status) + "</select></label>",
     '<button class="row-delete" type="button" data-delete-task="' + escapeHtml(task.id) + '" aria-label="Удалить задачу">×</button>',
@@ -431,6 +439,21 @@ function toggleComplete(id) {
   state.mode = "local_only";
   render();
   showToast(completed ? "Задача возвращена в общий список." : "Задача перенесена в выполненные.");
+}
+
+function setCompletedAt(id, value) {
+  const task = state.tasks.find((item) => item.id === id);
+  if (!task || task.status !== "done") return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    task.completedAt = task.completedAt || todayIso();
+    render();
+    showToast("Для выполненной задачи нужна дата.");
+    return;
+  }
+  task.completedAt = value;
+  state.mode = "local_only";
+  render();
+  showToast("Дата выполнения сохранена.");
 }
 
 function openProjectDialog(context = {}) {
@@ -716,6 +739,9 @@ document.addEventListener("change", (event) => {
     state.mode = "local_only";
     render();
   }
+
+  const completionDate = event.target.closest("[data-task-completed-at]");
+  if (completionDate) setCompletedAt(completionDate.dataset.taskCompletedAt, completionDate.value);
 
   const captureProject = event.target.closest("[data-capture-project]");
   if (captureProject?.value === "__new__") {
