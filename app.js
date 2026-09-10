@@ -14,6 +14,7 @@ const VIEW_META = {
   inbox: ["БЕЗ ПРОЕКТА", "Входящие"],
   projects: ["СПИСОК", "Проекты"],
   completed: ["АРХИВ РЕЗУЛЬТАТОВ", "Выполненные"],
+  analytics: ["СВОДКА", "Аналитика"],
 };
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -232,6 +233,83 @@ function renderCompleted() {
   renderTaskList("completed-task-list", tasks, "Выполненных задач пока нет.");
 }
 
+function localDate(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function analyticsWindow() {
+  const selected = document.querySelector("#analytics-period")?.value || "30";
+  if (selected === "all") return null;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (Number(selected) - 1));
+  return start;
+}
+
+function analyticsTasks() {
+  const start = analyticsWindow();
+  return state.tasks.filter((task) => {
+    if (task.status !== "done") return false;
+    const completedAt = localDate(task.completedAt);
+    return completedAt && (!start || completedAt >= start);
+  });
+}
+
+function formatTaskDate(value) {
+  const date = localDate(value);
+  return date ? new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(date) : "Без даты";
+}
+
+function analyticsEmpty(message) {
+  return '<div class="analytics-empty">' + escapeHtml(message) + "</div>";
+}
+
+function renderAnalytics() {
+  const completed = analyticsTasks();
+  const active = state.tasks.filter((task) => task.status !== "done");
+  const completedWithProject = new Set(completed.map((task) => task.projectId).filter(Boolean));
+  const unassigned = state.tasks.filter((task) => !task.projectId && task.status !== "done");
+  const period = document.querySelector("#analytics-period")?.value || "30";
+  const periodCaption = period === "all" ? "за всё время" : "за " + period + " дней";
+
+  document.querySelector("#analytics-completed").textContent = completed.length;
+  document.querySelector("#analytics-completed-caption").textContent = periodCaption;
+  document.querySelector("#analytics-active").textContent = active.length;
+  document.querySelector("#analytics-projects").textContent = completedWithProject.size;
+  document.querySelector("#analytics-unassigned").textContent = unassigned.length;
+  document.querySelector("#analytics-project-total").textContent = completed.length + " " + wordForm(completed.length, ["задача", "задачи", "задач"]);
+
+  const byProject = new Map();
+  completed.forEach((task) => {
+    const name = projectById(task.projectId)?.name || "Без проекта";
+    byProject.set(name, (byProject.get(name) || 0) + 1);
+  });
+  const projectRows = [...byProject.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ru"));
+  document.querySelector("#analytics-by-project").innerHTML = projectRows.length
+    ? projectRows.map(([name, count]) => '<div class="analytics-row"><span>' + escapeHtml(name) + "</span><b>" + count + "</b></div>").join("")
+    : analyticsEmpty("В выбранном периоде пока нет задач с датой выполнения.");
+
+  const byDay = new Map();
+  completed.forEach((task) => byDay.set(task.completedAt, (byDay.get(task.completedAt) || 0) + 1));
+  const days = [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  const maximum = Math.max(1, ...days.map(([, count]) => count));
+  document.querySelector("#analytics-by-day").innerHTML = days.length
+    ? days.map(([day, count]) => '<div class="analytics-day"><span>' + formatTaskDate(day) + '</span><i><b style="width:' + Math.round((count / maximum) * 100) + '%"></b></i><strong>' + count + "</strong></div>").join("")
+    : analyticsEmpty("Нет дат выполнения для построения ритма.");
+
+  const withCompletionDate = state.tasks.filter((task) => task.status === "done" && localDate(task.completedAt)).length;
+  const manual = state.tasks.filter((task) => (task.source || "Ручной ввод") === "Ручной ввод").length;
+  const otherSources = state.tasks.length - manual;
+  document.querySelector("#analytics-coverage").innerHTML = [
+    ["Хранилище", "Только этот браузер"],
+    ["Даты выполнения", withCompletionDate + " из " + state.tasks.filter((task) => task.status === "done").length],
+    ["Ручной ввод", manual + " задач"],
+    ["Другие источники", otherSources ? otherSources + " задач" : "не подключены"],
+  ].map(([label, value]) => '<div><span>' + label + "</span><strong>" + value + "</strong></div>").join("");
+}
+
 function renderProjectDetail() {
   const project = projectById(currentProjectId);
   if (!project) return;
@@ -286,6 +364,7 @@ function render() {
   renderTasks();
   renderInbox();
   renderCompleted();
+  renderAnalytics();
   renderProjects();
   renderProjectDetail();
   renderCounts();
@@ -705,6 +784,7 @@ document.querySelector("#project-form").addEventListener("submit", createProject
 document.querySelector("#task-search").addEventListener("input", renderTasks);
 document.querySelector("#project-filter").addEventListener("change", renderTasks);
 document.querySelector("#status-filter").addEventListener("change", renderTasks);
+document.querySelector("#analytics-period").addEventListener("change", renderAnalytics);
 document.querySelector("#delete-project-button").addEventListener("click", () => deleteProject(currentProjectId));
 document.querySelector("#export-button").addEventListener("click", exportData);
 document.querySelector("#dismiss-notice").addEventListener("click", () => {

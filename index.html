@@ -7,9 +7,9 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="description" content="ElCapitano — локальный список задач с проектами и статусами." />
     <title>ElCapitano — задачи</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=20260911-3" />
-    <link rel="icon" href="./icon.svg?v=20260911-3" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=20260911-3" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260911-4" />
+    <link rel="icon" href="./icon.svg?v=20260911-4" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=20260911-4" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">К содержанию</a>
@@ -38,6 +38,9 @@
           </button>
           <button class="nav-item" type="button" data-view-target="completed">
             <span aria-hidden="true">✓</span><span>Выполненные</span><b id="nav-completed-count">0</b>
+          </button>
+          <button class="nav-item" type="button" data-view-target="analytics">
+            <span aria-hidden="true">↗</span><span>Аналитика</span><b aria-hidden="true">·</b>
           </button>
         </nav>
 
@@ -145,6 +148,40 @@
           </section>
         </section>
 
+        <section class="view" data-view="analytics" aria-labelledby="view-title" hidden>
+          <section class="analytics-panel">
+            <div class="analytics-head">
+              <div>
+                <h2>Картина работы</h2>
+                <p>Считаются только записи этого браузера. Количество задач — не оценка пользы или денег.</p>
+              </div>
+              <label class="analytics-period"><span>Период</span><select id="analytics-period"><option value="7">7 дней</option><option value="30" selected>30 дней</option><option value="90">90 дней</option><option value="all">За всё время</option></select></label>
+            </div>
+            <div class="analytics-metrics" aria-live="polite">
+              <article><span>Выполнено</span><strong id="analytics-completed">0</strong><small id="analytics-completed-caption">за период</small></article>
+              <article><span>Активно</span><strong id="analytics-active">0</strong><small>сейчас в списке</small></article>
+              <article><span>Контуров с работой</span><strong id="analytics-projects">0</strong><small>по выполненным</small></article>
+              <article><span>Без проекта</span><strong id="analytics-unassigned">0</strong><small>нужно разобрать</small></article>
+            </div>
+          </section>
+
+          <div class="analytics-grid">
+            <section class="analytics-card" aria-labelledby="analytics-by-project-title">
+              <div class="analytics-card-head"><h2 id="analytics-by-project-title">Выполнено по проектам</h2><span id="analytics-project-total"></span></div>
+              <div id="analytics-by-project" class="analytics-rows"></div>
+            </section>
+            <section class="analytics-card" aria-labelledby="analytics-by-day-title">
+              <div class="analytics-card-head"><h2 id="analytics-by-day-title">Ритм выполнения</h2><span>по дате отметки</span></div>
+              <div id="analytics-by-day" class="analytics-days"></div>
+            </section>
+          </div>
+
+          <section class="analytics-card analytics-coverage" aria-labelledby="analytics-coverage-title">
+            <div class="analytics-card-head"><h2 id="analytics-coverage-title">Покрытие данных</h2><span>граница источника</span></div>
+            <div id="analytics-coverage" class="analytics-coverage-grid"></div>
+          </section>
+        </section>
+
         <section class="view" data-view="project" aria-labelledby="view-title" hidden>
           <div class="project-header">
             <button class="back-button" type="button" data-view-target="projects">← Все проекты</button>
@@ -171,6 +208,7 @@
       <button type="button" data-view-target="inbox"><span>⌑</span>Входящие</button>
       <button type="button" data-view-target="projects"><span>□</span>Проекты</button>
       <button type="button" data-view-target="completed"><span>✓</span>Готово</button>
+      <button type="button" data-view-target="analytics"><span>↗</span>Аналитика</button>
     </nav>
     <button class="mobile-fab" type="button" data-focus-capture aria-label="Добавить задачи">＋</button>
 
@@ -190,6 +228,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=20260911-3" defer></script>
+    <script src="./app.js?v=20260911-4" defer></script>
   </body>
 </html>
