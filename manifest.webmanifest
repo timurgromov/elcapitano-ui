@@ -1,7 +1,7 @@
 {
-  "name": "ElCapitano — личный курс",
+  "name": "ElCapitano — задачи",
   "short_name": "ElCapitano",
-  "description": "Локальный прототип пульта задач, фокуса и аналитики.",
+  "description": "Локальный список задач с проектами и статусами.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f3f0e8",

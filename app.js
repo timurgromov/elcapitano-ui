@@ -1,101 +1,114 @@
-const STORAGE_KEY = "elcapitano.prototype.v1";
+const STORAGE_KEY = "elcapitano.task-register.v2";
+const LEGACY_STORAGE_KEY = "elcapitano.prototype.v1";
 const NOTICE_KEY = "elcapitano.prototype.notice-dismissed";
 
-const ROLE_LABELS = {
-  external: "Внешний результат",
-  commitment: "Обязательство",
-  quality: "Качество / риск",
-  personal: "Семья / здоровье",
-  learning: "Обучение",
-  optimization: "Оптимизация",
-  unknown: "Не определено",
-};
-
 const STATUS_LABELS = {
-  ready: "Готово к выбору",
+  todo: "Новая",
   in_progress: "В работе",
-  completed: "Выполнено",
-  inbox: "Входящие",
-  deferred: "Отложено",
-  excluded: "Исключено",
-  reference: "Справочное",
-  idea: "Инкубатор",
+  waiting: "Ждёт",
+  done: "Готово",
 };
 
-const VIEW_TITLES = {
-  today: "Курс дня",
-  purgatory: "Чистилище",
-  tasks: "Все задачи",
-  analytics: "Аналитика",
+const VIEW_META = {
+  tasks: ["СПИСОК", "Все задачи"],
+  inbox: ["БЕЗ ПРОЕКТА", "Входящие"],
+  projects: ["СПИСОК", "Проекты"],
+  completed: ["АРХИВ РЕЗУЛЬТАТОВ", "Выполненные"],
 };
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
-const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + "-" + Math.random());
 
 const demoState = () => ({
+  schema: "elcapitano-task-register-v2",
   mode: "demo",
-  projects: ["Коммерческий результат", "Обязательства", "Продукт"],
-  focusId: "demo-focus",
-  analyticsPeriod: "week",
+  projects: [
+    { id: "project-sales", name: "Продажи", order: 0, isDemo: true },
+    { id: "project-events", name: "Текущие мероприятия", order: 1, isDemo: true },
+    { id: "project-elcapitano", name: "ElCapitano", order: 2, isDemo: true },
+  ],
   tasks: [
-    {
-      id: "demo-focus",
-      title: "Сформулировать и отправить один внешний оффер",
-      project: "Коммерческий результат",
-      status: "ready",
-      role: "external",
-      source: "Демо",
-      createdAt: todayIso(),
-      why: "Даёт внешнюю обратную связь раньше следующего улучшения системы.",
-      isDemo: true,
-    },
-    {
-      id: "demo-commitment",
-      title: "Закрыть одно обещанное обязательство",
-      project: "Обязательства",
-      status: "ready",
-      role: "commitment",
-      source: "Демо",
-      createdAt: todayIso(),
-      isDemo: true,
-    },
-    {
-      id: "demo-purgatory",
-      title: "Посмотреть сохранённый ролик про автоматизацию",
-      project: "Не определён",
-      status: "inbox",
-      role: "unknown",
-      source: "Заметка · демо",
-      createdAt: todayIso(),
-      question: "Какое решение или действие должно измениться после просмотра?",
-      isDemo: true,
-    },
-    {
-      id: "demo-completed",
-      title: "Собрать первый вариант структуры кабинета",
-      project: "Продукт",
-      status: "completed",
-      role: "quality",
-      source: "Демо",
-      createdAt: todayIso(),
-      completedAt: todayIso(),
-      isDemo: true,
-    },
+    { id: "task-sales", title: "Отправить предложение новому клиенту", projectId: "project-sales", status: "todo", order: 0, source: "Демо", createdAt: todayIso(), isDemo: true },
+    { id: "task-event", title: "Подготовить материалы к ближайшему мероприятию", projectId: "project-events", status: "in_progress", order: 1, source: "Демо", createdAt: todayIso(), isDemo: true },
+    { id: "task-system", title: "Проверить импорт выполненных задач из Codex", projectId: "project-elcapitano", status: "todo", order: 2, source: "Демо", createdAt: todayIso(), isDemo: true },
+    { id: "task-inbox", title: "Разобрать старые записи из рабочего стола", projectId: null, status: "todo", order: 3, source: "Демо", createdAt: todayIso(), isDemo: true },
   ],
 });
 
 let state = loadState();
-let currentView = "today";
+let currentView = "tasks";
+let currentProjectId = null;
+let projectDialogContext = {};
+let dragState = null;
 let toastTimer;
 
 function loadState() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (parsed && Array.isArray(parsed.tasks) && Array.isArray(parsed.projects)) return parsed;
+    if (parsed && Array.isArray(parsed.tasks) && Array.isArray(parsed.projects)) return normalizeState(parsed);
   } catch (_) {
-    // A corrupt local draft must not block the prototype.
+    // A corrupt local draft must not block the task register.
   }
+
+  try {
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY));
+    if (legacy && Array.isArray(legacy.tasks) && Array.isArray(legacy.projects)) return migrateLegacyState(legacy);
+  } catch (_) {
+    // Start with generic demo data when the old prototype cannot be read.
+  }
+
   return demoState();
+}
+
+function normalizeState(value) {
+  return {
+    schema: "elcapitano-task-register-v2",
+    mode: value.mode || "local_only",
+    projects: value.projects.map((project, index) => ({
+      ...project,
+      order: Number.isFinite(project.order) ? project.order : index,
+    })),
+    tasks: value.tasks.map((task, index) => ({
+      ...task,
+      projectId: task.projectId || null,
+      status: STATUS_LABELS[task.status] ? task.status : "todo",
+      order: Number.isFinite(task.order) ? task.order : index,
+    })),
+  };
+}
+
+function migrateLegacyState(legacy) {
+  const names = Array.from(new Set(
+    legacy.projects.concat(legacy.tasks.map((task) => task.project))
+      .filter((name) => name && !["Без проекта", "Не определён"].includes(name))
+  ));
+  const projects = names.map((name, index) => ({
+    id: newId(),
+    name,
+    order: index,
+    isDemo: legacy.tasks.some((task) => task.project === name && task.isDemo),
+  }));
+  const byName = new Map(projects.map((project) => [project.name, project.id]));
+  const statusMap = { ready: "todo", inbox: "todo", deferred: "waiting", completed: "done", in_progress: "in_progress" };
+
+  return normalizeState({
+    schema: "elcapitano-task-register-v2",
+    mode: legacy.mode || "local_only",
+    projects,
+    tasks: legacy.tasks
+      .filter((task) => !["excluded", "reference", "idea"].includes(task.status))
+      .map((task, index) => ({
+        id: task.id || newId(),
+        title: task.title,
+        projectId: byName.get(task.project) || null,
+        status: statusMap[task.status] || "todo",
+        order: index,
+        source: task.source || "Ручной ввод",
+        createdAt: task.createdAt || todayIso(),
+        completedAt: task.completedAt || null,
+        isDemo: Boolean(task.isDemo),
+      })),
+  });
 }
 
 function saveState() {
@@ -111,79 +124,16 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#039;");
 }
 
-function statusClass(status) {
-  if (status === "completed") return "status-completed";
-  if (status === "in_progress") return "status-progress";
-  if (status === "inbox") return "status-inbox";
-  if (["deferred", "excluded", "reference", "idea"].includes(status)) return "status-muted";
-  return "status-ready";
+function sortedProjects() {
+  return [...state.projects].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "ru"));
 }
 
-function taskCard(task, options = {}) {
-  const completed = task.status === "completed";
-  return `
-    <article class="task-card" data-task-id="${escapeHtml(task.id)}">
-      <button class="task-check ${completed ? "is-complete" : ""}" type="button" data-toggle-complete="${escapeHtml(task.id)}" aria-label="${completed ? "Вернуть в работу" : "Отметить выполненным"}">✓</button>
-      <div class="task-main">
-        <strong>${escapeHtml(task.title)}</strong>
-        <small>${escapeHtml(task.project || "Без проекта")}${options.showRole ? ` · ${escapeHtml(ROLE_LABELS[task.role] || ROLE_LABELS.unknown)}` : ""}</small>
-      </div>
-      <div class="task-meta">
-        <i class="role-mark ${escapeHtml(task.role || "unknown")}" title="${escapeHtml(ROLE_LABELS[task.role] || ROLE_LABELS.unknown)}"></i>
-        <span class="status-chip ${statusClass(task.status)}">${escapeHtml(STATUS_LABELS[task.status] || task.status)}</span>
-      </div>
-    </article>`;
+function sortedTasks() {
+  return [...state.tasks].sort((a, b) => a.order - b.order || a.createdAt.localeCompare(b.createdAt));
 }
 
-function renderToday() {
-  const focus = state.tasks.find((task) => task.id === state.focusId && task.status !== "completed")
-    || state.tasks.find((task) => task.status === "ready" && task.role === "external")
-    || state.tasks.find((task) => task.status === "ready");
-  const focusContent = document.querySelector("#focus-content");
-
-  if (focus) {
-    state.focusId = focus.id;
-    focusContent.innerHTML = `
-      <div class="focus-body">
-        <div class="focus-route" aria-label="Маршрут главной ставки: ${escapeHtml(focus.project || "Без проекта")}, ${escapeHtml(ROLE_LABELS[focus.role] || ROLE_LABELS.unknown)}">
-          <span>${escapeHtml(focus.project || "Без проекта")}</span>
-          <b aria-hidden="true">→</b>
-          <span>${escapeHtml(ROLE_LABELS[focus.role] || ROLE_LABELS.unknown)}</span>
-        </div>
-        <h2>${escapeHtml(focus.title)}</h2>
-        <p>${escapeHtml(focus.why || "Сформулируй один наблюдаемый результат — это станет границей задачи.")}</p>
-        <div class="focus-actions">
-          <button class="button" type="button" data-toggle-complete="${escapeHtml(focus.id)}">Отметить результат</button>
-          <button class="button button-secondary" type="button" data-action="change-focus">Сменить осознанно</button>
-        </div>
-      </div>`;
-    document.querySelector("#course-project").textContent = focus.project || "Без проекта";
-    document.querySelector("#course-outcome").textContent = ROLE_LABELS[focus.role] || "Нужен выбор";
-  } else {
-    focusContent.innerHTML = `
-      <div class="focus-body">
-        <h2>Главная ставка ещё не выбрана</h2>
-        <p>Добавь понятную задачу или выбери одну из готовых — без неё система не будет придумывать направление.</p>
-        <div class="focus-actions"><button class="button" type="button" data-open-quick-add>Добавить результат</button></div>
-      </div>`;
-    document.querySelector("#course-project").textContent = "Не выбран";
-    document.querySelector("#course-outcome").textContent = "Нужен выбор";
-  }
-
-  const commitments = state.tasks.filter((task) => task.role === "commitment" && task.status !== "completed" && !["excluded", "deferred"].includes(task.status));
-  const completed = state.tasks.filter((task) => task.status === "completed" && task.completedAt === todayIso());
-  document.querySelector("#commitments-list").innerHTML = commitments.length
-    ? commitments.map((task) => taskCard(task)).join("")
-    : emptyState("Нет обязательных контуров", "Добавляй только реальные обещания и дедлайны.");
-  document.querySelector("#completed-list").innerHTML = completed.length
-    ? completed.slice(0, 6).map((task) => taskCard(task, { showRole: true })).join("")
-    : emptyState("Пока нет подтверждённых результатов", "Добавь выполненное — план сам по себе не считается фактом.");
-  document.querySelector("#commitments-count").textContent = `${commitments.length} ${wordForm(commitments.length, ["задача", "задачи", "задач"])}`;
-  document.querySelector("#completed-count").textContent = `${completed.length} ${wordForm(completed.length, ["результат", "результата", "результатов"])}`;
-}
-
-function emptyState(title, text) {
-  return `<div class="empty-state"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(text)}</span></div>`;
+function projectById(id) {
+  return state.projects.find((project) => project.id === id);
 }
 
 function wordForm(number, forms) {
@@ -195,131 +145,152 @@ function wordForm(number, forms) {
   return forms[2];
 }
 
-function renderPurgatory() {
-  const inbox = state.tasks.filter((task) => task.status === "inbox");
-  document.querySelector("#nav-inbox-count").textContent = inbox.length;
-  document.querySelector("#purgatory-count").textContent = `${inbox.length} ${wordForm(inbox.length, ["осталась", "осталось", "осталось"])}`;
-  const container = document.querySelector("#purgatory-card");
-  if (!inbox.length) {
-    container.innerHTML = emptyState("Чистилище пусто", "Новые и непонятные записи появятся здесь, а не в плане дня.");
-    return;
-  }
-  const task = inbox[0];
-  container.innerHTML = `
-    <article class="triage-card" data-task-id="${escapeHtml(task.id)}">
-      <div class="triage-source"><span>${escapeHtml(task.source || "Ручной ввод")}</span><span>не подтверждено</span></div>
-      <blockquote>${escapeHtml(task.title)}</blockquote>
-      <p class="triage-question">${escapeHtml(task.question || "Какой конкретный результат должен появиться после этой задачи?")}</p>
-      <div class="triage-fields">
-        <select id="triage-project" aria-label="Проект">${projectOptions(task.project)}</select>
-        <input id="triage-next-action" maxlength="180" placeholder="Следующее действие" aria-label="Следующее действие" />
-      </div>
-      <div class="triage-actions">
-        <button type="button" data-triage="task">Это задача</button>
-        <button type="button" data-triage="idea">Идея / обучение</button>
-        <button type="button" data-triage="reference">Справочное</button>
-        <button type="button" data-triage="deferred">Отложить</button>
-        <button type="button" data-triage="excluded">Исключить</button>
-      </div>
-    </article>`;
+function projectOptions(selectedId = "", settings = {}) {
+  const options = [];
+  if (settings.includeAll) options.push('<option value="all">Все проекты</option>');
+  const noProjectValue = settings.includeAll ? "none" : "";
+  options.push('<option value="' + noProjectValue + '"' + (!selectedId ? " selected" : "") + '>Без проекта</option>');
+  sortedProjects().forEach((project) => {
+    options.push('<option value="' + escapeHtml(project.id) + '"' + (project.id === selectedId ? " selected" : "") + ">" + escapeHtml(project.name) + "</option>");
+  });
+  if (settings.includeNew !== false) options.push('<option value="__new__">＋ Создать проект</option>');
+  return options.join("");
 }
 
-function projectOptions(selected = "") {
-  const projects = [...new Set([...state.projects, selected].filter(Boolean))];
-  return [`<option value="">Выбрать проект</option>`, ...projects.map((project) => `<option value="${escapeHtml(project)}" ${project === selected ? "selected" : ""}>${escapeHtml(project)}</option>`)].join("");
+function statusOptions(selected) {
+  return Object.entries(STATUS_LABELS)
+    .map(([value, label]) => '<option value="' + value + '"' + (value === selected ? " selected" : "") + ">" + label + "</option>")
+    .join("");
 }
 
-function renderTaskFilters() {
+function taskRow(task, index, listId) {
+  const done = task.status === "done";
+  return [
+    '<article class="task-row' + (done ? " is-done" : "") + '" data-task-id="' + escapeHtml(task.id) + '">',
+    '<div class="order-cell">',
+    '<button class="drag-handle" type="button" data-drag-task="' + escapeHtml(task.id) + '" data-list-id="' + escapeHtml(listId) + '" aria-label="Изменить порядок задачи ' + (index + 1) + '" title="Перетащить или использовать стрелки">⠿</button>',
+    '<span class="task-number">' + (index + 1) + "</span>",
+    "</div>",
+    '<button class="task-check' + (done ? " is-complete" : "") + '" type="button" data-toggle-complete="' + escapeHtml(task.id) + '" aria-label="' + (done ? "Вернуть задачу в работу" : "Отметить задачу выполненной") + '">✓</button>',
+    '<div class="task-title"><strong>' + escapeHtml(task.title) + "</strong><small>" + escapeHtml(task.source || "Ручной ввод") + "</small></div>",
+    '<label class="inline-field"><span class="sr-only">Проект задачи</span><select data-task-project="' + escapeHtml(task.id) + '">' + projectOptions(task.projectId) + "</select></label>",
+    '<label class="inline-field"><span class="sr-only">Статус задачи</span><select data-task-status="' + escapeHtml(task.id) + '">' + statusOptions(task.status) + "</select></label>",
+    '<button class="row-delete" type="button" data-delete-task="' + escapeHtml(task.id) + '" aria-label="Удалить задачу">×</button>',
+    "</article>",
+  ].join("");
+}
+
+function renderTaskList(containerId, tasks, emptyText) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = tasks.length
+    ? tasks.map((task, index) => taskRow(task, index, containerId)).join("")
+    : '<div class="empty-state">' + escapeHtml(emptyText) + "</div>";
+}
+
+function filteredMainTasks() {
+  const query = document.querySelector("#task-search").value.trim().toLowerCase();
+  const projectId = document.querySelector("#project-filter").value;
+  const status = document.querySelector("#status-filter").value;
+  return sortedTasks().filter((task) => {
+    const project = projectById(task.projectId);
+    if (query && !(task.title + " " + (project?.name || "")).toLowerCase().includes(query)) return false;
+    if (projectId === "none" && task.projectId) return false;
+    if (!["all", "none"].includes(projectId) && task.projectId !== projectId) return false;
+    if (status === "active" && task.status === "done") return false;
+    if (!["active", "all"].includes(status) && task.status !== status) return false;
+    return true;
+  });
+}
+
+function renderFilters() {
   const filter = document.querySelector("#project-filter");
-  const current = filter.value || "all";
-  filter.innerHTML = `<option value="all">Все проекты</option>${state.projects.map((project) => `<option value="${escapeHtml(project)}">${escapeHtml(project)}</option>`).join("")}`;
-  filter.value = state.projects.includes(current) ? current : "all";
-  document.querySelector("#quick-project").innerHTML = projectOptions();
+  const previous = filter.value || "all";
+  filter.innerHTML = projectOptions("", { includeAll: true, includeNew: false });
+  const allowed = ["all", "none"].concat(state.projects.map((project) => project.id));
+  filter.value = allowed.includes(previous) ? previous : "all";
+
+  document.querySelectorAll("[data-capture-project]").forEach((select) => {
+    const selected = select.value;
+    select.innerHTML = projectOptions(selected);
+    if (state.projects.some((project) => project.id === selected)) select.value = selected;
+  });
 }
 
 function renderTasks() {
-  const query = document.querySelector("#task-search").value.trim().toLowerCase();
-  const project = document.querySelector("#project-filter").value;
-  const status = document.querySelector("#status-filter").value;
-  const tasks = state.tasks.filter((task) => {
-    if (query && !`${task.title} ${task.project}`.toLowerCase().includes(query)) return false;
-    if (project !== "all" && task.project !== project) return false;
-    if (status !== "all" && task.status !== status) return false;
-    return !["excluded"].includes(task.status);
-  });
-  document.querySelector("#all-tasks-list").innerHTML = tasks.length
-    ? tasks.map((task) => `
-      <article class="task-row" data-task-id="${escapeHtml(task.id)}">
-        <div><strong>${escapeHtml(task.title)}</strong><small>${escapeHtml(ROLE_LABELS[task.role] || ROLE_LABELS.unknown)}</small></div>
-        <span>${escapeHtml(task.project || "Без проекта")}</span>
-        <span class="status-chip ${statusClass(task.status)}">${escapeHtml(STATUS_LABELS[task.status] || task.status)}</span>
-        <span class="source-label">${escapeHtml(task.source || "Ручной ввод")}</span>
-      </article>`).join("")
-    : emptyState("Ничего не найдено", "Измени фильтры или добавь новую запись.");
+  const tasks = filteredMainTasks();
+  renderTaskList("all-tasks-list", tasks, "Задач по выбранным фильтрам нет.");
+  document.querySelector("#task-list-count").textContent = tasks.length + " " + wordForm(tasks.length, ["задача", "задачи", "задач"]);
 }
 
-function periodDays(period) {
-  return period === "day" ? 1 : period === "month" ? 30 : 7;
+function renderInbox() {
+  const tasks = sortedTasks().filter((task) => !task.projectId && task.status !== "done");
+  renderTaskList("inbox-task-list", tasks, "Входящие пусты — у всех активных задач назначен проект.");
 }
 
-function inPeriod(task, period) {
-  const date = new Date(`${task.completedAt || task.createdAt}T12:00:00`);
-  const threshold = new Date();
-  threshold.setHours(0, 0, 0, 0);
-  threshold.setDate(threshold.getDate() - periodDays(period) + 1);
-  return date >= threshold;
+function renderCompleted() {
+  const tasks = sortedTasks().filter((task) => task.status === "done");
+  renderTaskList("completed-task-list", tasks, "Выполненных задач пока нет.");
 }
 
-function renderAnalytics() {
-  const period = state.analyticsPeriod || "week";
-  document.querySelectorAll("[data-period]").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.period === period);
-  });
-  const tasks = state.tasks.filter((task) => task.status === "completed" && inPeriod(task, period));
-  const outcomeCount = tasks.filter((task) => task.role === "external").length;
-  const commitmentCount = tasks.filter((task) => task.role === "commitment").length;
-  const learningCount = tasks.filter((task) => ["learning", "optimization"].includes(task.role)).length;
-  const projectCount = new Set(tasks.map((task) => task.project).filter(Boolean)).size;
-  const metrics = [
-    ["Внешние результаты", outcomeCount, "деньги, рынок, опубликованный результат"],
-    ["Закрытые обязательства", commitmentCount, "обещания и реальные сроки"],
-    ["Обучение + оптимизация", learningCount, "не штраф, а сигнал для сравнения"],
-    ["Проекты с движением", projectCount, "по подтверждённым действиям"],
-  ];
-  document.querySelector("#metric-grid").innerHTML = metrics.map(([label, value, note]) => `<article class="metric-card"><small>${label}</small><strong>${value}</strong><em>${note}</em></article>`).join("");
-  document.querySelector("#analytics-period-label").textContent = `${periodDays(period)} ${wordForm(periodDays(period), ["день", "дня", "дней"])}`;
+function renderProjectDetail() {
+  const project = projectById(currentProjectId);
+  if (!project) return;
+  const tasks = sortedTasks().filter((task) => task.projectId === project.id);
+  renderTaskList("project-task-list", tasks, "В этом проекте пока нет задач.");
+}
 
-  const counts = Object.keys(ROLE_LABELS).filter((key) => key !== "unknown").map((role) => ({
-    role,
-    label: ROLE_LABELS[role],
-    count: tasks.filter((task) => task.role === role).length,
-  }));
-  const max = Math.max(1, ...counts.map((item) => item.count));
-  document.querySelector("#direction-bars").innerHTML = counts.map((item) => {
-    const level = Math.round((item.count / max) * 10);
-    return `<div class="bar-item"><span>${escapeHtml(item.label)}</span><div class="bar-track"><div class="bar-fill ${escapeHtml(item.role)} level-${level}"></div></div><strong>${item.count}</strong></div>`;
-  }).join("");
-
-  const projects = [...new Set(tasks.map((task) => task.project).filter(Boolean))];
-  document.querySelector("#project-movement").innerHTML = projects.length
-    ? projects.map((project) => {
-      const projectTasks = tasks.filter((task) => task.project === project);
-      const external = projectTasks.filter((task) => task.role === "external").length;
-      return `<div class="movement-row"><strong>${escapeHtml(project)}</strong><span>${projectTasks.length}</span><small>${external ? `${external} внешних результатов` : "внешний результат пока не отмечен"}</small></div>`;
+function renderProjects() {
+  const projects = sortedProjects();
+  document.querySelector("#project-list").innerHTML = projects.length
+    ? projects.map((project, index) => {
+      const tasks = state.tasks.filter((task) => task.projectId === project.id);
+      const active = tasks.filter((task) => task.status !== "done").length;
+      const done = tasks.length - active;
+      return [
+        '<article class="project-row" data-project-id="' + escapeHtml(project.id) + '">',
+        '<div class="order-cell">',
+        '<button class="drag-handle" type="button" data-drag-project="' + escapeHtml(project.id) + '" data-list-id="project-list" aria-label="Изменить порядок проекта ' + (index + 1) + '" title="Перетащить или использовать стрелки">⠿</button>',
+        '<span class="task-number">' + (index + 1) + "</span>",
+        "</div>",
+        '<button class="project-open" type="button" data-open-project="' + escapeHtml(project.id) + '"><strong>' + escapeHtml(project.name) + "</strong><small>" + active + " активных · " + done + " выполнено</small></button>",
+        '<span class="project-total">' + tasks.length + "</span>",
+        '<button class="row-delete" type="button" data-delete-project="' + escapeHtml(project.id) + '" aria-label="Удалить проект ' + escapeHtml(project.name) + '">×</button>',
+        "</article>",
+      ].join("");
     }).join("")
-    : emptyState("Пока нет движения", "Добавь выполненные результаты — аналитика не строится из планов.");
+    : '<div class="empty-state">Проектов пока нет. Создай первый проект одной кнопкой.</div>';
+
+  document.querySelector("#sidebar-project-list").innerHTML = projects.length
+    ? projects.map((project) => {
+      const active = state.tasks.filter((task) => task.projectId === project.id && task.status !== "done").length;
+      return '<button type="button" data-open-project="' + escapeHtml(project.id) + '"><span>' + escapeHtml(project.name) + "</span><b>" + active + "</b></button>";
+    }).join("")
+    : '<span class="sidebar-empty">Пока пусто</span>';
+}
+
+function renderCounts() {
+  const active = state.tasks.filter((task) => task.status !== "done").length;
+  const inbox = state.tasks.filter((task) => !task.projectId && task.status !== "done").length;
+  const completed = state.tasks.filter((task) => task.status === "done").length;
+  document.querySelector("#nav-task-count").textContent = active;
+  document.querySelector("#nav-inbox-count").textContent = inbox;
+  document.querySelector("#nav-project-count").textContent = state.projects.length;
+  document.querySelector("#nav-completed-count").textContent = completed;
 }
 
 function render() {
-  renderTaskFilters();
-  renderToday();
-  renderPurgatory();
+  renderFilters();
   renderTasks();
-  renderAnalytics();
+  renderInbox();
+  renderCompleted();
+  renderProjects();
+  renderProjectDetail();
+  renderCounts();
   saveState();
 }
 
-function switchView(view) {
+function switchView(view, projectId = null) {
+  if (view === "project") currentProjectId = projectId || currentProjectId;
   currentView = view;
   document.querySelectorAll("[data-view]").forEach((section) => {
     const active = section.dataset.view === view;
@@ -331,93 +302,189 @@ function switchView(view) {
     button.classList.toggle("is-active", active);
     if (button.closest(".primary-nav")) active ? button.setAttribute("aria-current", "page") : button.removeAttribute("aria-current");
   });
-  document.querySelector("#view-title").textContent = VIEW_TITLES[view];
+  const project = projectById(currentProjectId);
+  const meta = view === "project" && project ? ["ПРОЕКТ", project.name] : VIEW_META[view];
+  document.querySelector("#view-kicker").textContent = meta?.[0] || "СПИСОК";
+  document.querySelector("#view-title").textContent = meta?.[1] || "Задачи";
+  render();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function normalizeInputLines(value) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^(?:[-•*]|\d+[.)]|[☐□])\s+/, "").trim())
+    .filter(Boolean);
+}
+
+function addTasks(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const input = form.querySelector("[data-capture-input]");
+  const lines = normalizeInputLines(input.value);
+  if (!lines.length) {
+    showToast("Напиши хотя бы одну задачу.");
+    input.focus();
+    return;
+  }
+  const projectId = form.dataset.captureForm === "project"
+    ? currentProjectId
+    : form.querySelector("[data-capture-project]")?.value || null;
+  let order = Math.max(-1, ...state.tasks.map((task) => task.order)) + 1;
+  lines.forEach((title) => {
+    state.tasks.push({ id: newId(), title, projectId, status: "todo", order: order++, source: "Ручной ввод", createdAt: todayIso(), completedAt: null, isDemo: false });
+  });
+  state.mode = "local_only";
+  input.value = "";
+  render();
+  showToast("Добавлено: " + lines.length + ".");
 }
 
 function toggleComplete(id) {
   const task = state.tasks.find((item) => item.id === id);
   if (!task) return;
-  const wasComplete = task.status === "completed";
-  task.status = wasComplete ? "ready" : "completed";
-  task.completedAt = wasComplete ? null : todayIso();
-  if (!wasComplete) showToast("Результат отмечен. В runtime он ещё потребует подтверждения.");
+  const completed = task.status === "done";
+  task.status = completed ? "todo" : "done";
+  task.completedAt = completed ? null : todayIso();
+  state.mode = "local_only";
   render();
+  showToast(completed ? "Задача возвращена в общий список." : "Задача перенесена в выполненные.");
 }
 
-function triageTask(decision) {
-  const task = state.tasks.find((item) => item.status === "inbox");
-  if (!task) return;
-  const project = document.querySelector("#triage-project")?.value;
-  const nextAction = document.querySelector("#triage-next-action")?.value.trim();
-  if (decision === "task" && !project) {
-    showToast("Сначала выбери проект — иначе задача снова потеряется.");
-    return;
-  }
-  if (project) task.project = project;
-  if (nextAction) task.title = nextAction;
-  if (decision === "task") task.status = "ready";
-  if (["idea", "reference", "deferred", "excluded"].includes(decision)) task.status = decision;
-  if (decision === "idea") task.role = "learning";
-  showToast(decision === "task" ? "Запись готова к выбору." : "Запись убрана из активного потока.");
-  render();
+function openProjectDialog(context = {}) {
+  projectDialogContext = context;
+  const dialog = document.querySelector("#project-dialog");
+  const input = document.querySelector("#project-name");
+  document.querySelector("#project-form-error").hidden = true;
+  input.value = "";
+  dialog.showModal();
+  setTimeout(() => input.focus(), 0);
 }
 
-function changeFocus() {
-  const ready = state.tasks.filter((task) => task.status === "ready" && task.id !== state.focusId);
-  if (!ready.length) {
-    showToast("Других готовых задач нет. Сначала разбери входящие.");
-    return;
-  }
-  state.focusId = ready[0].id;
-  showToast("Фокус изменён осознанно. Причину можно будет хранить в runtime.");
-  render();
+function closeProjectDialog() {
+  document.querySelector("#project-dialog").close();
+  projectDialogContext = {};
 }
 
-function addCompleted(event) {
+function createProject(event) {
   event.preventDefault();
-  const title = document.querySelector("#quick-title").value.trim();
-  const newProject = document.querySelector("#quick-new-project").value.trim();
-  const selectedProject = document.querySelector("#quick-project").value;
-  const project = newProject || selectedProject || "Без проекта";
-  const role = document.querySelector("#quick-role").value;
-  if (!title) return;
-  if (newProject && !state.projects.includes(newProject)) state.projects.push(newProject);
-  state.tasks.push({
-    id: newId(), title, project, role, status: "completed", source: "Ручной ввод",
-    createdAt: todayIso(), completedAt: todayIso(), isDemo: false,
+  const name = document.querySelector("#project-name").value.trim();
+  const error = document.querySelector("#project-form-error");
+  if (!name) return;
+  if (state.projects.some((project) => project.name.toLowerCase() === name.toLowerCase())) {
+    error.textContent = "Проект с таким названием уже есть.";
+    error.hidden = false;
+    return;
+  }
+  const project = {
+    id: newId(),
+    name,
+    order: Math.max(-1, ...state.projects.map((item) => item.order)) + 1,
+    isDemo: false,
+  };
+  state.projects.push(project);
+  if (projectDialogContext.taskId) {
+    const task = state.tasks.find((item) => item.id === projectDialogContext.taskId);
+    if (task) task.projectId = project.id;
+  }
+  state.mode = "local_only";
+  document.querySelector("#project-dialog").close();
+  const captureForm = projectDialogContext.captureForm;
+  projectDialogContext = {};
+  render();
+  if (captureForm) {
+    const select = captureForm.querySelector("[data-capture-project]");
+    if (select) select.value = project.id;
+  }
+  showToast("Проект создан.");
+}
+
+function deleteProject(id) {
+  const project = projectById(id);
+  if (!project) return;
+  if (!window.confirm("Удалить проект «" + project.name + "»? Задачи останутся во входящих.")) return;
+  state.tasks.forEach((task) => {
+    if (task.projectId === id) task.projectId = null;
+  });
+  state.projects = state.projects.filter((item) => item.id !== id);
+  state.mode = "local_only";
+  if (currentProjectId === id) switchView("projects");
+  else render();
+  showToast("Проект удалён. Его задачи перенесены во входящие.");
+}
+
+function deleteTask(id) {
+  const task = state.tasks.find((item) => item.id === id);
+  if (!task || !window.confirm("Удалить задачу «" + task.title + "»?")) return;
+  state.tasks = state.tasks.filter((item) => item.id !== id);
+  state.mode = "local_only";
+  render();
+  showToast("Задача удалена.");
+}
+
+function applyVisibleOrder(type, listId) {
+  const container = document.getElementById(listId);
+  if (!container) return;
+  const selector = type === "task" ? "[data-task-id]" : "[data-project-id]";
+  const ids = [...container.querySelectorAll(":scope > " + selector)].map((item) => (
+    type === "task" ? item.dataset.taskId : item.dataset.projectId
+  ));
+  const collection = type === "task" ? state.tasks : state.projects;
+  const slots = ids
+    .map((id) => collection.find((item) => item.id === id)?.order)
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  ids.forEach((id, index) => {
+    const item = collection.find((entry) => entry.id === id);
+    if (item) item.order = slots[index] ?? index;
   });
   state.mode = "local_only";
-  event.currentTarget.reset();
-  document.querySelector("#quick-add-dialog").close();
-  showToast("Сохранено только в этом браузере.");
   render();
 }
 
-function showSourceBoundary(source) {
-  document.querySelector("#info-dialog").dataset.state = "provider_not_connected";
-  document.querySelector("#info-title").textContent = `${source}: пока не подключён`;
-  document.querySelector("#info-text").textContent = source === "Codex"
-    ? "Прототип показывает будущий flow, но не читает чаты и не создаёт ложный импорт. Защищённый adapter позже передаст только короткие task metadata в PostgreSQL."
-    : "Статическая страница не получает доступ к Google Doc и токенам. Read-only adapter будет работать на backend, сравнивать revision и передавать только новые или изменённые строки.";
-  document.querySelector("#info-dialog").showModal();
+function beginDrag(event, type, id, listId) {
+  const rowSelector = type === "task" ? ".task-row" : ".project-row";
+  const row = event.target.closest(rowSelector);
+  if (!row) return;
+  event.preventDefault();
+  dragState = { type, id, listId, row, rowSelector };
+  row.classList.add("is-dragging");
+  document.body.classList.add("is-reordering");
 }
 
-function exportJson() {
-  const safe = {
-    exportedAt: new Date().toISOString(),
-    schema: "elcapitano-prototype-v1",
-    projects: state.projects,
-    tasks: state.tasks.filter((task) => !task.isDemo),
-  };
-  const blob = new Blob([JSON.stringify(safe, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `elcapitano-export-${todayIso()}.json`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-  showToast(safe.tasks.length ? "JSON export создан." : "Экспорт создан без demo-записей.");
+function moveDrag(event) {
+  if (!dragState) return;
+  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(dragState.rowSelector);
+  if (!target || target === dragState.row || target.parentElement?.id !== dragState.listId) return;
+  const rect = target.getBoundingClientRect();
+  if (event.clientY < rect.top + rect.height / 2) target.before(dragState.row);
+  else target.after(dragState.row);
+}
+
+function endDrag() {
+  if (!dragState) return;
+  const type = dragState.type;
+  const listId = dragState.listId;
+  dragState.row.classList.remove("is-dragging");
+  document.body.classList.remove("is-reordering");
+  dragState = null;
+  applyVisibleOrder(type, listId);
+  showToast(type === "task" ? "Порядок задач сохранён." : "Порядок проектов сохранён.");
+}
+
+function moveByKeyboard(type, id, listId, direction) {
+  const container = document.getElementById(listId);
+  if (!container) return;
+  const selector = type === "task" ? "[data-task-id]" : "[data-project-id]";
+  const rows = [...container.querySelectorAll(":scope > " + selector)];
+  const index = rows.findIndex((row) => (
+    type === "task" ? row.dataset.taskId : row.dataset.projectId
+  ) === id);
+  const next = index + direction;
+  if (index < 0 || next < 0 || next >= rows.length) return;
+  if (direction < 0) rows[next].before(rows[index]);
+  else rows[next].after(rows[index]);
+  applyVisibleOrder(type, listId);
 }
 
 function showToast(message) {
@@ -425,56 +492,128 @@ function showToast(message) {
   toast.textContent = message;
   toast.classList.add("is-visible");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2800);
+  toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2200);
+}
+
+function exportData() {
+  const payload = {
+    schema: "elcapitano-task-register-v2",
+    exportedAt: new Date().toISOString(),
+    projects: state.projects,
+    tasks: state.tasks,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "elcapitano-tasks-" + todayIso() + ".json";
+  link.click();
+  URL.revokeObjectURL(link.href);
+  showToast("JSON экспортирован.");
 }
 
 document.addEventListener("click", (event) => {
   const viewButton = event.target.closest("[data-view-target]");
   if (viewButton) switchView(viewButton.dataset.viewTarget);
 
+  const projectButton = event.target.closest("[data-open-project]");
+  if (projectButton) switchView("project", projectButton.dataset.openProject);
+
   const completeButton = event.target.closest("[data-toggle-complete]");
   if (completeButton) toggleComplete(completeButton.dataset.toggleComplete);
 
-  if (event.target.closest("[data-open-quick-add]")) document.querySelector("#quick-add-dialog").showModal();
-  if (event.target.closest("[data-close-dialog]")) document.querySelector("#quick-add-dialog").close();
-  if (event.target.closest("[data-close-info]")) document.querySelector("#info-dialog").close();
+  const deleteTaskButton = event.target.closest("[data-delete-task]");
+  if (deleteTaskButton) deleteTask(deleteTaskButton.dataset.deleteTask);
 
-  const sourceButton = event.target.closest("[data-source]");
-  if (sourceButton) showSourceBoundary(sourceButton.dataset.source);
+  const deleteProjectButton = event.target.closest("[data-delete-project]");
+  if (deleteProjectButton) deleteProject(deleteProjectButton.dataset.deleteProject);
 
-  const triageButton = event.target.closest("[data-triage]");
-  if (triageButton) triageTask(triageButton.dataset.triage);
-
-  if (event.target.closest("[data-action='change-focus']")) changeFocus();
+  if (event.target.closest("[data-open-project-dialog]")) openProjectDialog();
+  if (event.target.closest("[data-close-project-dialog]")) closeProjectDialog();
+  if (event.target.closest("[data-focus-capture]")) {
+    if (currentView !== "tasks") switchView("tasks");
+    setTimeout(() => document.querySelector("#task-capture").focus(), 0);
+  }
 });
 
-document.querySelector("#quick-add-form").addEventListener("submit", addCompleted);
-document.querySelector("#export-button").addEventListener("click", exportJson);
+document.addEventListener("change", (event) => {
+  const projectSelect = event.target.closest("[data-task-project]");
+  if (projectSelect) {
+    const task = state.tasks.find((item) => item.id === projectSelect.dataset.taskProject);
+    if (!task) return;
+    if (projectSelect.value === "__new__") {
+      projectSelect.value = task.projectId || "";
+      openProjectDialog({ taskId: task.id });
+    } else {
+      task.projectId = projectSelect.value || null;
+      state.mode = "local_only";
+      render();
+    }
+  }
+
+  const statusSelect = event.target.closest("[data-task-status]");
+  if (statusSelect) {
+    const task = state.tasks.find((item) => item.id === statusSelect.dataset.taskStatus);
+    if (!task) return;
+    task.status = statusSelect.value;
+    task.completedAt = task.status === "done" ? task.completedAt || todayIso() : null;
+    state.mode = "local_only";
+    render();
+  }
+
+  const captureProject = event.target.closest("[data-capture-project]");
+  if (captureProject?.value === "__new__") {
+    captureProject.value = "";
+    openProjectDialog({ captureForm: captureProject.closest("form") });
+  }
+});
+
+document.addEventListener("pointerdown", (event) => {
+  const taskHandle = event.target.closest("[data-drag-task]");
+  if (taskHandle) beginDrag(event, "task", taskHandle.dataset.dragTask, taskHandle.dataset.listId);
+  const projectHandle = event.target.closest("[data-drag-project]");
+  if (projectHandle) beginDrag(event, "project", projectHandle.dataset.dragProject, projectHandle.dataset.listId);
+});
+
+document.addEventListener("pointermove", moveDrag);
+document.addEventListener("pointerup", endDrag);
+document.addEventListener("pointercancel", endDrag);
+
+document.addEventListener("keydown", (event) => {
+  const taskHandle = event.target.closest("[data-drag-task]");
+  const projectHandle = event.target.closest("[data-drag-project]");
+  const handle = taskHandle || projectHandle;
+  if (!handle || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+  event.preventDefault();
+  moveByKeyboard(
+    taskHandle ? "task" : "project",
+    taskHandle?.dataset.dragTask || projectHandle.dataset.dragProject,
+    handle.dataset.listId,
+    event.key === "ArrowUp" ? -1 : 1
+  );
+});
+
+document.querySelectorAll("[data-capture-form]").forEach((form) => form.addEventListener("submit", addTasks));
+document.querySelector("#project-form").addEventListener("submit", createProject);
 document.querySelector("#task-search").addEventListener("input", renderTasks);
 document.querySelector("#project-filter").addEventListener("change", renderTasks);
 document.querySelector("#status-filter").addEventListener("change", renderTasks);
-document.querySelectorAll("[data-period]").forEach((button) => button.addEventListener("click", () => {
-  state.analyticsPeriod = button.dataset.period;
-  document.querySelectorAll("[data-period]").forEach((item) => item.classList.toggle("is-active", item === button));
-  renderAnalytics();
-  saveState();
-}));
+document.querySelector("#delete-project-button").addEventListener("click", () => deleteProject(currentProjectId));
+document.querySelector("#export-button").addEventListener("click", exportData);
 document.querySelector("#dismiss-notice").addEventListener("click", () => {
   document.querySelector("#prototype-notice").hidden = true;
   localStorage.setItem(NOTICE_KEY, "1");
 });
 document.querySelector("#remove-demo").addEventListener("click", () => {
+  const demoProjectIds = new Set(state.projects.filter((project) => project.isDemo).map((project) => project.id));
   state.tasks = state.tasks.filter((task) => !task.isDemo);
-  state.projects = [...new Set(state.tasks.map((task) => task.project).filter((project) => project && project !== "Без проекта"))];
-  state.focusId = null;
+  state.projects = state.projects.filter((project) => !demoProjectIds.has(project.id) || state.tasks.some((task) => task.projectId === project.id));
   state.mode = "local_only";
   document.querySelector("#prototype-notice").hidden = true;
   localStorage.setItem(NOTICE_KEY, "1");
-  showToast("Демо убрано. Теперь здесь только твои записи.");
   render();
+  showToast("Демо удалено. Можно заносить свои задачи.");
 });
 
-document.querySelector("#date-kicker").textContent = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
 if (localStorage.getItem(NOTICE_KEY)) document.querySelector("#prototype-notice").hidden = true;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 render();
