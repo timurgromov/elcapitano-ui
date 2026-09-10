@@ -243,6 +243,9 @@ h2 { margin: 0; font-size: 17px; letter-spacing: -.025em; }
 .task-title strong, .task-title small { display: block; }
 .task-title strong { overflow: hidden; font-size: 13px; font-weight: 650; line-height: 1.35; text-overflow: ellipsis; }
 .task-title small { margin-top: 2px; color: var(--ink-soft); font-size: 9px; }
+.editable-name { min-width: 0; border-radius: 4px; cursor: text; outline: 0; }
+.editable-name:hover { background: #f1efe8; box-shadow: 0 0 0 3px #f1efe8; }
+.editable-name:focus { overflow: visible; background: white; box-shadow: 0 0 0 2px var(--amber); text-overflow: clip; white-space: normal; }
 .inline-field select { width: 100%; min-width: 0; height: 34px; font-size: 11px; }
 .row-delete { display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #a4a69f; font-size: 17px; }
 .row-delete:hover { background: #f3e4e1; color: var(--red); }
@@ -253,11 +256,11 @@ h2 { margin: 0; font-size: 17px; letter-spacing: -.025em; }
 .project-list { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .project-row { display: grid; grid-template-columns: 62px minmax(0, 1fr) 46px 34px; min-height: 55px; align-items: center; gap: 9px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: white; }
 .project-row:last-child { border-bottom: 0; }
-.project-open { display: block; min-width: 0; padding: 5px 0; border: 0; background: transparent; color: var(--ink); text-align: left; }
-.project-open strong, .project-open small { display: block; }
-.project-open strong { font-size: 13px; }
-.project-open small { margin-top: 4px; color: var(--ink-soft); font-size: 10px; }
-.project-open:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+.project-title { min-width: 0; padding: 5px 0; }
+.project-title > strong { display: block; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.project-open { display: block; min-width: 0; margin-top: 4px; padding: 0; border: 0; background: transparent; color: var(--ink-soft); text-align: left; }
+.project-open small { display: block; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.project-open:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .project-total { color: var(--ink-soft); font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center; }
 .project-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .back-button { min-height: 36px; padding: 0; border: 0; background: transparent; color: var(--ink-soft); }

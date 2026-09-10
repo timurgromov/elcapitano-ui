@@ -172,7 +172,7 @@ function taskRow(task, index, listId) {
     '<span class="task-number">' + (index + 1) + "</span>",
     "</div>",
     '<button class="task-check' + (done ? " is-complete" : "") + '" type="button" data-toggle-complete="' + escapeHtml(task.id) + '" aria-label="' + (done ? "Вернуть задачу в работу" : "Отметить задачу выполненной") + '">✓</button>',
-    '<div class="task-title"><strong>' + escapeHtml(task.title) + "</strong><small>" + escapeHtml(task.source || "Ручной ввод") + "</small></div>",
+    '<div class="task-title"><strong class="editable-name" contenteditable="plaintext-only" role="textbox" aria-multiline="false" aria-label="Редактировать название задачи" spellcheck="true" data-edit-task-title="' + escapeHtml(task.id) + '">' + escapeHtml(task.title) + "</strong><small>" + escapeHtml(task.source || "Ручной ввод") + "</small></div>",
     '<label class="inline-field"><span class="sr-only">Проект задачи</span><select data-task-project="' + escapeHtml(task.id) + '">' + projectOptions(task.projectId) + "</select></label>",
     '<label class="inline-field"><span class="sr-only">Статус задачи</span><select data-task-status="' + escapeHtml(task.id) + '">' + statusOptions(task.status) + "</select></label>",
     '<button class="row-delete" type="button" data-delete-task="' + escapeHtml(task.id) + '" aria-label="Удалить задачу">×</button>',
@@ -252,7 +252,10 @@ function renderProjects() {
         '<button class="drag-handle" type="button" data-drag-project="' + escapeHtml(project.id) + '" data-list-id="project-list" aria-label="Изменить порядок проекта ' + (index + 1) + '" title="Перетащить или использовать стрелки">⠿</button>',
         '<span class="task-number">' + (index + 1) + "</span>",
         "</div>",
-        '<button class="project-open" type="button" data-open-project="' + escapeHtml(project.id) + '"><strong>' + escapeHtml(project.name) + "</strong><small>" + active + " активных · " + done + " выполнено</small></button>",
+        '<div class="project-title">',
+        '<strong class="editable-name" contenteditable="plaintext-only" role="textbox" aria-multiline="false" aria-label="Редактировать название проекта" spellcheck="true" data-edit-project-name="' + escapeHtml(project.id) + '">' + escapeHtml(project.name) + "</strong>",
+        '<button class="project-open" type="button" data-open-project="' + escapeHtml(project.id) + '"><small>' + active + " активных · " + done + " выполнено · Открыть →</small></button>",
+        "</div>",
         '<span class="project-total">' + tasks.length + "</span>",
         '<button class="row-delete" type="button" data-delete-project="' + escapeHtml(project.id) + '" aria-label="Удалить проект ' + escapeHtml(project.name) + '">×</button>',
         "</article>",
@@ -263,7 +266,7 @@ function renderProjects() {
   document.querySelector("#sidebar-project-list").innerHTML = projects.length
     ? projects.map((project) => {
       const active = state.tasks.filter((task) => task.projectId === project.id && task.status !== "done").length;
-      return '<button type="button" data-open-project="' + escapeHtml(project.id) + '"><span>' + escapeHtml(project.name) + "</span><b>" + active + "</b></button>";
+      return '<button type="button" data-open-project="' + escapeHtml(project.id) + '"><span data-project-name-label="' + escapeHtml(project.id) + '">' + escapeHtml(project.name) + "</span><b>" + active + "</b></button>";
     }).join("")
     : '<span class="sidebar-empty">Пока пусто</span>';
 }
@@ -420,6 +423,81 @@ function deleteTask(id) {
   state.mode = "local_only";
   render();
   showToast("Задача удалена.");
+}
+
+function editableRecord(target) {
+  const taskId = target.dataset.editTaskTitle;
+  if (taskId) {
+    const task = state.tasks.find((item) => item.id === taskId);
+    return task ? { type: "task", record: task, field: "title", maxLength: 500 } : null;
+  }
+  const projectId = target.dataset.editProjectName;
+  if (projectId) {
+    const project = projectById(projectId);
+    return project ? { type: "project", record: project, field: "name", maxLength: 100 } : null;
+  }
+  return null;
+}
+
+function normalizeEditableText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function syncEditedName(type, id, value) {
+  const dataKey = type === "task" ? "editTaskTitle" : "editProjectName";
+  document.querySelectorAll(type === "task" ? "[data-edit-task-title]" : "[data-edit-project-name]").forEach((element) => {
+    if (element.dataset[dataKey] === id) element.textContent = value;
+  });
+  if (type !== "project") return;
+  document.querySelectorAll("[data-project-name-label]").forEach((element) => {
+    if (element.dataset.projectNameLabel === id) element.textContent = value;
+  });
+  document.querySelectorAll("option").forEach((option) => {
+    if (option.value === id) option.textContent = value;
+  });
+  if (currentView === "project" && currentProjectId === id) {
+    document.querySelector("#view-title").textContent = value;
+  }
+}
+
+function finishInlineEdit(target) {
+  const editable = editableRecord(target);
+  if (!editable) return;
+  const original = target.dataset.originalValue ?? editable.record[editable.field];
+  if (target.dataset.cancelEdit === "true") {
+    syncEditedName(editable.type, editable.record.id, original);
+    return;
+  }
+
+  const value = normalizeEditableText(target.textContent);
+  if (!value) {
+    syncEditedName(editable.type, editable.record.id, original);
+    showToast(editable.type === "task" ? "Название задачи не может быть пустым." : "Название проекта не может быть пустым.");
+    return;
+  }
+  if (value.length > editable.maxLength) {
+    syncEditedName(editable.type, editable.record.id, original);
+    showToast("Название слишком длинное.");
+    return;
+  }
+  if (editable.type === "project" && state.projects.some((project) => (
+    project.id !== editable.record.id && project.name.toLowerCase() === value.toLowerCase()
+  ))) {
+    syncEditedName(editable.type, editable.record.id, original);
+    showToast("Проект с таким названием уже есть.");
+    return;
+  }
+
+  if (value === editable.record[editable.field]) {
+    syncEditedName(editable.type, editable.record.id, value);
+    return;
+  }
+  editable.record[editable.field] = value;
+  editable.record.updatedAt = new Date().toISOString();
+  state.mode = "local_only";
+  saveState();
+  syncEditedName(editable.type, editable.record.id, value);
+  showToast(editable.type === "task" ? "Название задачи сохранено." : "Название проекта сохранено.");
 }
 
 function applyVisibleOrder(type, listId) {
@@ -579,6 +657,14 @@ document.addEventListener("pointerup", endDrag);
 document.addEventListener("pointercancel", endDrag);
 
 document.addEventListener("keydown", (event) => {
+  const editableName = event.target.closest("[data-edit-task-title], [data-edit-project-name]");
+  if (editableName && ["Enter", "Escape"].includes(event.key)) {
+    event.preventDefault();
+    if (event.key === "Escape") editableName.dataset.cancelEdit = "true";
+    editableName.blur();
+    return;
+  }
+
   const taskHandle = event.target.closest("[data-drag-task]");
   const projectHandle = event.target.closest("[data-drag-project]");
   const handle = taskHandle || projectHandle;
@@ -590,6 +676,28 @@ document.addEventListener("keydown", (event) => {
     handle.dataset.listId,
     event.key === "ArrowUp" ? -1 : 1
   );
+});
+
+document.addEventListener("focusin", (event) => {
+  const editableName = event.target.closest("[data-edit-task-title], [data-edit-project-name]");
+  if (!editableName) return;
+  const editable = editableRecord(editableName);
+  if (!editable) return;
+  editableName.dataset.originalValue = editable.record[editable.field];
+  delete editableName.dataset.cancelEdit;
+});
+
+document.addEventListener("focusout", (event) => {
+  const editableName = event.target.closest("[data-edit-task-title], [data-edit-project-name]");
+  if (editableName) finishInlineEdit(editableName);
+});
+
+document.addEventListener("paste", (event) => {
+  const editableName = event.target.closest("[data-edit-task-title], [data-edit-project-name]");
+  if (!editableName) return;
+  event.preventDefault();
+  const text = normalizeEditableText(event.clipboardData?.getData("text/plain"));
+  document.execCommand("insertText", false, text);
 });
 
 document.querySelectorAll("[data-capture-form]").forEach((form) => form.addEventListener("submit", addTasks));
