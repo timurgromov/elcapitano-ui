@@ -145,6 +145,11 @@ function renderToday() {
     state.focusId = focus.id;
     focusContent.innerHTML = `
       <div class="focus-body">
+        <div class="focus-route" aria-label="Маршрут главной ставки: ${escapeHtml(focus.project || "Без проекта")}, ${escapeHtml(ROLE_LABELS[focus.role] || ROLE_LABELS.unknown)}">
+          <span>${escapeHtml(focus.project || "Без проекта")}</span>
+          <b aria-hidden="true">→</b>
+          <span>${escapeHtml(ROLE_LABELS[focus.role] || ROLE_LABELS.unknown)}</span>
+        </div>
         <h2>${escapeHtml(focus.title)}</h2>
         <p>${escapeHtml(focus.why || "Сформулируй один наблюдаемый результат — это станет границей задачи.")}</p>
         <div class="focus-actions">

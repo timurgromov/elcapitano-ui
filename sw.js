@@ -1,11 +1,11 @@
-const CACHE = "elcapitano-prototype-v3";
+const CACHE = "elcapitano-prototype-v4";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=20260910-2",
-  "./app.js?v=20260910-2",
-  "./manifest.webmanifest?v=20260910-2",
-  "./icon.svg?v=20260910-2",
+  "./styles.css?v=20260910-3",
+  "./app.js?v=20260910-3",
+  "./manifest.webmanifest?v=20260910-3",
+  "./icon.svg?v=20260910-3",
 ];
 
 self.addEventListener("install", (event) => {
