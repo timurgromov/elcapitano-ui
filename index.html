@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#20231f" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    />
+    <meta
+      name="description"
+      content="ElCapitano — локальный прототип пульта задач, фокуса и аналитики."
+    />
+    <title>ElCapitano — курс дня</title>
+    <link rel="manifest" href="./manifest.webmanifest?v=20260910-2" />
+    <link rel="icon" href="./icon.svg?v=20260910-2" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=20260910-2" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">К содержанию</a>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Основная навигация">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40" role="img">
+              <path d="M7 31 17.5 10l5 10 3.5-7L34 31H7Z" />
+              <path d="m15 31 5-10 4 10" />
+            </svg>
+          </span>
+          <span>
+            <strong>ElCapitano</strong>
+            <small>личный курс</small>
+          </span>
+        </div>
+
+        <nav class="primary-nav">
+          <button class="nav-item is-active" type="button" data-view-target="today" aria-current="page">
+            <span aria-hidden="true">⌁</span><span>Сегодня</span>
+          </button>
+          <button class="nav-item" type="button" data-view-target="purgatory">
+            <span aria-hidden="true">◇</span><span>Чистилище</span><b id="nav-inbox-count">0</b>
+          </button>
+          <button class="nav-item" type="button" data-view-target="tasks">
+            <span aria-hidden="true">≡</span><span>Все задачи</span>
+          </button>
+          <button class="nav-item" type="button" data-view-target="analytics">
+            <span aria-hidden="true">↗</span><span>Аналитика</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-foot">
+          <p class="eyebrow">Режим прототипа</p>
+          <div class="status-line"><i class="status-dot"></i> Только этот браузер</div>
+          <button class="text-button" type="button" id="export-button">Экспортировать JSON</button>
+        </div>
+      </aside>
+
+      <main id="main-content" class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="date-kicker">Сегодня</p>
+            <h1 id="view-title">Курс дня</h1>
+          </div>
+          <div class="topbar-actions">
+            <span class="privacy-pill"><i></i> local-only</span>
+            <button class="button button-primary" type="button" data-open-quick-add>
+              <span aria-hidden="true">＋</span> Добавить выполненное
+            </button>
+          </div>
+        </header>
+
+        <div class="prototype-notice" id="prototype-notice">
+          <span><strong>Безопасный прототип.</strong> Записи пока не синхронизируются с PostgreSQL и остаются в этом браузере.</span>
+          <span class="notice-actions">
+            <button class="notice-start" type="button" id="remove-demo">Начать со своих данных</button>
+            <button type="button" id="dismiss-notice" aria-label="Скрыть уведомление">×</button>
+          </span>
+        </div>
+
+        <section class="view is-active" data-view="today" aria-labelledby="view-title">
+          <div class="workspace-grid">
+            <div class="work-column">
+              <article class="focus-card" id="focus-card">
+                <div class="focus-head">
+                  <div>
+                    <p class="eyebrow">Главная ставка · сегодня</p>
+                    <span class="source-chip">Эксперимент</span>
+                  </div>
+                  <button class="icon-button" type="button" data-action="change-focus" aria-label="Сменить фокус">•••</button>
+                </div>
+                <div id="focus-content"></div>
+              </article>
+
+              <section class="section-block" aria-labelledby="commitments-title">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Не конкурируют с фокусом</p>
+                    <h2 id="commitments-title">Обязательные контуры</h2>
+                  </div>
+                  <span class="count-label" id="commitments-count">0 задач</span>
+                </div>
+                <div class="task-stack" id="commitments-list"></div>
+              </section>
+
+              <section class="section-block compact-block" aria-labelledby="completed-title">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Факты дня</p>
+                    <h2 id="completed-title">Уже выполнено</h2>
+                  </div>
+                  <span class="count-label" id="completed-count">0 результатов</span>
+                </div>
+                <div class="task-stack" id="completed-list"></div>
+              </section>
+            </div>
+
+            <aside class="context-rail" aria-label="Контекст дня">
+              <section class="rail-card">
+                <div class="rail-heading">
+                  <p class="eyebrow">Источники</p>
+                  <span class="tiny-status">не подключены</span>
+                </div>
+                <button class="source-button" type="button" data-source="Codex">
+                  <span class="source-icon source-icon-dark">C</span>
+                  <span><strong>Собрать из Codex</strong><small>Факты работы за день</small></span>
+                  <b>→</b>
+                </button>
+                <button class="source-button" type="button" data-source="Google Doc">
+                  <span class="source-icon source-icon-blue">G</span>
+                  <span><strong>Собрать из Google</strong><small>Изменения «Рабочего стола»</small></span>
+                  <b>→</b>
+                </button>
+              </section>
+
+              <section class="rail-card route-card">
+                <p class="eyebrow">Курс</p>
+                <div class="course-rail">
+                  <div><i></i><span>Источник</span><strong id="course-source">Ручной ввод</strong></div>
+                  <div><i></i><span>Проект</span><strong id="course-project">Не выбран</strong></div>
+                  <div><i></i><span>Результат</span><strong id="course-outcome">Нужен выбор</strong></div>
+                </div>
+              </section>
+
+              <section class="rail-card not-today-card">
+                <p class="eyebrow">Сегодня не делаем</p>
+                <p id="not-today-text">Не улучшаем систему до первого внешнего результата.</p>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-view="purgatory" aria-labelledby="view-title" hidden>
+          <div class="purgatory-layout">
+            <section class="queue-panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Входящие</p>
+                  <h2>Одна запись за раз</h2>
+                </div>
+                <span class="count-label" id="purgatory-count">0 осталось</span>
+              </div>
+              <div id="purgatory-card"></div>
+            </section>
+            <aside class="purgatory-help">
+              <p class="eyebrow">Правило</p>
+              <h3>Запись ещё не обязательство</h3>
+              <p>Она получит место в плане только после понятного следующего действия и проекта.</p>
+              <ol>
+                <li><span>1</span> Понять смысл</li>
+                <li><span>2</span> Выбрать проект</li>
+                <li><span>3</span> Решить: сейчас, позже или нет</li>
+              </ol>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-view="tasks" aria-labelledby="view-title" hidden>
+          <div class="tasks-panel">
+            <div class="filter-row">
+              <label class="search-field">
+                <span aria-hidden="true">⌕</span>
+                <input id="task-search" type="search" placeholder="Найти задачу" autocomplete="off" />
+              </label>
+              <label>
+                <span class="sr-only">Проект</span>
+                <select id="project-filter"><option value="all">Все проекты</option></select>
+              </label>
+              <label>
+                <span class="sr-only">Состояние</span>
+                <select id="status-filter">
+                  <option value="all">Все состояния</option>
+                  <option value="ready">Готово к выбору</option>
+                  <option value="in_progress">В работе</option>
+                  <option value="completed">Выполнено</option>
+                  <option value="inbox">Входящие</option>
+                  <option value="deferred">Отложено</option>
+                </select>
+              </label>
+            </div>
+            <div class="task-table-head" aria-hidden="true">
+              <span>Задача</span><span>Проект</span><span>Состояние</span><span>Источник</span>
+            </div>
+            <div id="all-tasks-list" class="all-tasks-list"></div>
+          </div>
+        </section>
+
+        <section class="view" data-view="analytics" aria-labelledby="view-title" hidden>
+          <div class="analytics-head">
+            <div>
+              <p class="eyebrow">Не оценка личности</p>
+              <h2>Направление движения</h2>
+            </div>
+            <div class="segmented-control" aria-label="Период аналитики">
+              <button type="button" data-period="day">День</button>
+              <button class="is-active" type="button" data-period="week">Неделя</button>
+              <button type="button" data-period="month">Месяц</button>
+            </div>
+          </div>
+
+          <div class="metric-grid" id="metric-grid"></div>
+          <div class="analytics-grid">
+            <section class="chart-card">
+              <div class="section-heading">
+                <div><p class="eyebrow">Роли действий</p><h3>Куда ушло внимание</h3></div>
+                <span class="count-label" id="analytics-period-label">7 дней</span>
+              </div>
+              <div class="bar-list" id="direction-bars"></div>
+            </section>
+            <section class="chart-card">
+              <div class="section-heading">
+                <div><p class="eyebrow">Проекты</p><h3>Подтверждённое движение</h3></div>
+              </div>
+              <div class="project-movement" id="project-movement"></div>
+            </section>
+          </div>
+          <section class="finance-strip">
+            <div><p class="eyebrow">Медленный финансовый контекст</p><h3>Обновляется отдельно, не при каждом открытии</h3></div>
+            <span class="status-chip status-muted">PostgreSQL не подключён</span>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <nav class="mobile-nav" aria-label="Мобильная навигация">
+      <button class="is-active" type="button" data-view-target="today"><span>⌁</span>Сегодня</button>
+      <button type="button" data-view-target="purgatory"><span>◇</span>Чистилище</button>
+      <button type="button" data-view-target="tasks"><span>≡</span>Задачи</button>
+      <button type="button" data-view-target="analytics"><span>↗</span>Аналитика</button>
+    </nav>
+
+    <button class="mobile-fab" type="button" data-open-quick-add aria-label="Добавить выполненное">＋</button>
+
+    <dialog id="quick-add-dialog" class="dialog">
+      <form method="dialog" id="quick-add-form">
+        <div class="dialog-head">
+          <div><p class="eyebrow">Факт дня</p><h2>Что ты сделал?</h2></div>
+          <button class="icon-button" type="button" data-close-dialog aria-label="Закрыть">×</button>
+        </div>
+        <label class="form-field">
+          <span>Короткий результат</span>
+          <textarea id="quick-title" rows="3" maxlength="280" required placeholder="Например: отправил предложение потенциальному клиенту"></textarea>
+        </label>
+        <div class="form-grid">
+          <label class="form-field">
+            <span>Проект</span>
+            <select id="quick-project"></select>
+          </label>
+          <label class="form-field">
+            <span>Роль</span>
+            <select id="quick-role">
+              <option value="external">Внешний результат</option>
+              <option value="commitment">Обязательство</option>
+              <option value="quality">Качество / риск</option>
+              <option value="personal">Семья / здоровье</option>
+              <option value="learning">Обучение</option>
+              <option value="optimization">Оптимизация</option>
+            </select>
+          </label>
+        </div>
+        <label class="form-field">
+          <span>Новый проект — если его ещё нет</span>
+          <input id="quick-new-project" maxlength="100" placeholder="Оставь пустым, если выбран существующий" />
+        </label>
+        <div class="dialog-note">Запись сохранится только в этом браузере. Для переноса используй JSON export.</div>
+        <div class="dialog-actions">
+          <button class="button button-secondary" type="button" data-close-dialog>Отмена</button>
+          <button class="button button-primary" type="submit">Сохранить результат</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="info-dialog" class="dialog dialog-small">
+      <div class="dialog-head">
+        <div><p class="eyebrow">Граница прототипа</p><h2 id="info-title">Источник не подключён</h2></div>
+        <button class="icon-button" type="button" data-close-info aria-label="Закрыть">×</button>
+      </div>
+      <p id="info-text"></p>
+      <button class="button button-primary button-full" type="button" data-close-info>Понятно</button>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js?v=20260910-2" defer></script>
+  </body>
+</html>

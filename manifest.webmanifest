@@ -1,0 +1,17 @@
+{
+  "name": "ElCapitano — личный курс",
+  "short_name": "ElCapitano",
+  "description": "Локальный прототип пульта задач, фокуса и аналитики.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f0e8",
+  "theme_color": "#20231f",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
