@@ -240,9 +240,13 @@ h2 { margin: 0; font-size: 17px; letter-spacing: -.025em; }
 .row-delete:hover { background: #f3e4e1; color: var(--red); }
 .empty-state { padding: 28px 18px; color: var(--ink-soft); font-size: 12px; text-align: center; }
 .archive-group + .archive-group { border-top: 7px solid var(--canvas); }
-.archive-date-head { display: flex; min-height: 39px; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; border-bottom: 1px solid var(--line); background: var(--amber-soft); }
-.archive-date-head h3 { font-size: 12px; letter-spacing: -.01em; }
-.archive-date-head span { color: var(--ink-soft); font-size: 10px; font-weight: 700; white-space: nowrap; }
+.archive-date-toggle { display: flex; width: 100%; min-height: 43px; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; border: 0; border-bottom: 1px solid var(--line); background: var(--amber-soft); color: var(--ink); text-align: left; }
+.archive-date-toggle:hover { background: #f8ebd1; }
+.archive-date-toggle:focus-visible { outline: 2px solid var(--amber); outline-offset: -3px; }
+.archive-date-title { font-size: 12px; font-weight: 700; letter-spacing: -.01em; }
+.archive-date-meta { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 10px; font-weight: 700; white-space: nowrap; }
+.archive-chevron { color: var(--ink); font-size: 17px; line-height: 1; transition: transform 160ms ease; }
+.archive-date-toggle[aria-expanded="true"] .archive-chevron { transform: rotate(180deg); }
 .archive-group-list .task-row:last-child { border-bottom: 0; }
 
 .projects-panel { padding: 14px; }

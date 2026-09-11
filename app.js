@@ -56,6 +56,7 @@ let dragState = null;
 let toastTimer;
 let reviewSnapshot = null;
 let reviewLoading = false;
+let expandedArchiveDate = null;
 
 function loadState() {
   try {
@@ -277,17 +278,24 @@ function renderCompleted() {
   const groups = groupCompletedTasks(tasks);
   let taskNumber = 0;
   container.innerHTML = groups.map(([date, groupedTasks]) => {
+    const isExpanded = expandedArchiveDate === date;
+    const listId = "archive-group-" + date;
     const rows = groupedTasks.map((task) => {
       taskNumber += 1;
       return taskRow(task, taskNumber - 1, "completed-task-list", { reorderable: false });
     }).join("");
     return [
       '<section class="archive-group" data-archive-date="' + escapeHtml(date) + '">',
-      '<header class="archive-date-head"><h3>' + escapeHtml(archiveDateLabel(date)) + '</h3><span>' + groupedTasks.length + " " + wordForm(groupedTasks.length, ["задача", "задачи", "задач"]) + "</span></header>",
-      '<div class="archive-group-list">' + rows + "</div>",
+      '<button class="archive-date-toggle" type="button" data-toggle-archive-group="' + escapeHtml(date) + '" aria-expanded="' + isExpanded + '" aria-controls="' + listId + '"><span class="archive-date-title">' + escapeHtml(archiveDateLabel(date)) + '</span><span class="archive-date-meta"><span>' + groupedTasks.length + " " + wordForm(groupedTasks.length, ["задача", "задачи", "задач"]) + '</span><span class="archive-chevron" aria-hidden="true">⌄</span></span></button>',
+      '<div class="archive-group-list" id="' + listId + '"' + (isExpanded ? "" : " hidden") + ">" + rows + "</div>",
       "</section>",
     ].join("");
   }).join("");
+}
+
+function toggleArchiveGroup(date) {
+  expandedArchiveDate = expandedArchiveDate === date ? null : date;
+  renderCompleted();
 }
 
 function localDate(value) {
@@ -966,6 +974,9 @@ document.addEventListener("click", (event) => {
 
   const todayButton = event.target.closest("[data-toggle-today]");
   if (todayButton) toggleToday(todayButton.dataset.toggleToday);
+
+  const archiveToggle = event.target.closest("[data-toggle-archive-group]");
+  if (archiveToggle) toggleArchiveGroup(archiveToggle.dataset.toggleArchiveGroup);
 
   const deleteTaskButton = event.target.closest("[data-delete-task]");
   if (deleteTaskButton) deleteTask(deleteTaskButton.dataset.deleteTask);
