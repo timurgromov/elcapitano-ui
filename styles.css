@@ -320,6 +320,40 @@ h2 { margin: 0; font-size: 17px; letter-spacing: -.025em; }
 .analytics-coverage-grid span { color: var(--ink-soft); font-size: 10px; }
 .analytics-coverage-grid strong { margin-top: 6px; font-size: 12px; line-height: 1.35; }
 
+.review-panel, .review-question-panel, .review-list-panel { border: 1px solid var(--line); border-radius: var(--radius); background: rgba(251, 250, 246, .96); }
+.review-panel { padding: 16px; }
+.review-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.review-head h2 { font-size: 18px; }
+.review-head p { max-width: 620px; margin: 5px 0 0; color: var(--ink-soft); font-size: 11px; line-height: 1.45; }
+.review-date-form { display: flex; align-items: end; gap: 8px; }
+.review-date-form label { display: grid; gap: 4px; color: var(--ink-soft); font-size: 10px; font-weight: 700; }
+.review-date-form input { min-height: 40px; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--ink); }
+.review-status { margin-top: 14px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--ink-soft); font-size: 11px; }
+.review-status[data-state="error"] { border-color: #d7aaa2; background: #f9e9e6; color: var(--red); }
+.review-question-panel { display: grid; grid-template-columns: minmax(230px, .85fr) minmax(0, 1.15fr); gap: 18px; margin-top: 14px; padding: 16px; border-color: #ddcaa9; background: #fffaf1; }
+.review-question-copy h2 { margin-top: 4px; font-size: 17px; }
+.review-question-copy p { margin: 8px 0 0; font-size: 13px; font-weight: 650; line-height: 1.45; }
+.review-question-copy small { display: block; margin-top: 10px; color: var(--ink-soft); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.45; }
+.review-answer-form { display: grid; gap: 7px; }
+.review-answer-form > label { color: var(--ink-soft); font-size: 11px; font-weight: 750; }
+.review-answer-form textarea { width: 100%; min-height: 104px; padding: 10px 11px; border: 1px solid var(--line-strong); border-radius: 8px; background: white; color: var(--ink); line-height: 1.45; resize: vertical; }
+.review-answer-form textarea:focus { border-color: var(--moss); box-shadow: 0 0 0 3px rgba(86, 101, 82, .11); outline: 0; }
+.review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.review-hint { margin: 0; color: var(--ink-soft); font-size: 10px; line-height: 1.35; }
+.review-list-panel { margin-top: 14px; overflow: hidden; }
+.review-candidate-list { padding: 4px 14px; }
+.review-candidate { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; min-height: 47px; align-items: center; gap: 9px; border-bottom: 1px solid var(--line); }
+.review-candidate:last-child { border-bottom: 0; }
+.review-candidate-number { color: var(--ink-soft); font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center; }
+.review-candidate strong, .review-candidate small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-candidate strong { font-size: 12px; }
+.review-candidate small { margin-top: 3px; color: var(--ink-soft); font-size: 10px; }
+.review-state { max-width: 145px; padding: 4px 7px; border-radius: 99px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.review-state-needs_clarification { background: var(--amber-soft); color: #835723; }
+.review-state-user_reported { background: var(--moss-soft); color: #365438; }
+.review-state-confirmed { background: #e7efed; color: #246153; }
+.review-state-excluded { background: #ebe9e2; color: var(--ink-soft); }
+
 @media (max-width: 1080px) {
   :root { --sidebar-width: 210px; }
   .main-content { padding-inline: 22px; }
@@ -367,11 +401,19 @@ h2 { margin: 0; font-size: 17px; letter-spacing: -.025em; }
   .analytics-grid { grid-template-columns: 1fr; }
   .analytics-coverage-grid div:nth-child(2) { border-right: 0; }
   .analytics-coverage-grid div:nth-child(n + 3) { border-top: 1px solid var(--line); }
-  .mobile-nav { position: fixed; z-index: 40; inset: auto 0 0; display: grid; grid-template-columns: repeat(5, 1fr); padding: 5px 5px calc(5px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(251, 250, 246, .97); }
+  .review-head { align-items: stretch; flex-direction: column; }
+  .review-question-panel { grid-template-columns: 1fr; }
+  .review-date-form { align-items: stretch; }
+  .review-date-form label { flex: 1; }
+  .review-date-form input, .review-date-form .button { min-height: 44px; }
+  .review-answer-form textarea { min-height: 120px; font-size: 16px; }
+  .review-actions .button { flex: 1 1 180px; min-height: 44px; }
+  .mobile-nav { position: fixed; z-index: 40; inset: auto 0 0; display: grid; grid-template-columns: repeat(6, 1fr); padding: 5px 5px calc(5px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(251, 250, 246, .97); }
   .mobile-nav button { position: relative; display: grid; min-height: 52px; place-items: center; gap: 1px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-soft); font-size: 9px; }
   .mobile-nav button span { font-size: 16px; }
   .mobile-nav button.is-active { color: var(--ink); }
   .mobile-nav button.is-active::before { content: ""; position: absolute; top: 0; width: 18px; height: 2px; background: var(--amber); }
+  .mobile-nav.is-runtime-review { grid-template-columns: 1fr; }
   .mobile-fab { position: fixed; z-index: 45; right: 14px; bottom: calc(72px + env(safe-area-inset-bottom)); display: grid; width: 50px; height: 50px; place-items: center; border: 0; border-radius: 14px; background: var(--ink); color: white; box-shadow: var(--shadow); font-size: 22px; }
   .toast { right: 12px; bottom: calc(132px + env(safe-area-inset-bottom)); left: 12px; max-width: none; }
 }
@@ -392,6 +434,8 @@ h2 { margin: 0; font-size: 17px; letter-spacing: -.025em; }
   .analytics-period select { width: 100%; min-height: 44px; }
   .analytics-metrics { grid-template-columns: 1fr 1fr; }
   .analytics-metrics article { min-height: 78px; }
+  .review-date-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .review-state { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 }
 
 @media (prefers-reduced-motion: reduce) {

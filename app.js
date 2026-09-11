@@ -1,6 +1,8 @@
 const STORAGE_KEY = "elcapitano.task-register.v2";
 const LEGACY_STORAGE_KEY = "elcapitano.prototype.v1";
 const NOTICE_KEY = "elcapitano.prototype.notice-dismissed";
+const LOOPBACK_RUNTIME = ["127.0.0.1", "localhost", "::1"].includes(window.location.hostname)
+  && window.location.pathname.startsWith("/cabinet");
 
 const STATUS_LABELS = {
   todo: "Новая",
@@ -15,6 +17,7 @@ const VIEW_META = {
   projects: ["СПИСОК", "Проекты"],
   completed: ["АРХИВ РЕЗУЛЬТАТОВ", "Выполненные"],
   analytics: ["СВОДКА", "Аналитика"],
+  review: ["ПОДТВЕРЖДЕНИЕ ФАКТОВ", "Разбор дня"],
 };
 
 const todayIso = () => {
@@ -41,12 +44,14 @@ const demoState = () => ({
   ],
 });
 
-let state = loadState();
-let currentView = "tasks";
+let state = LOOPBACK_RUNTIME ? { schema: "elcapitano-task-register-v2", mode: "runtime_review", projects: [], tasks: [] } : loadState();
+let currentView = LOOPBACK_RUNTIME ? "review" : "tasks";
 let currentProjectId = null;
 let projectDialogContext = {};
 let dragState = null;
 let toastTimer;
+let reviewSnapshot = null;
+let reviewLoading = false;
 
 function loadState() {
   try {
@@ -365,6 +370,153 @@ function renderCounts() {
   document.querySelector("#nav-inbox-count").textContent = inbox;
   document.querySelector("#nav-project-count").textContent = state.projects.length;
   document.querySelector("#nav-completed-count").textContent = completed;
+  const unresolved = reviewSnapshot?.activities?.filter((activity) => activity.confirmation_state === "needs_clarification").length;
+  const reviewCount = document.querySelector("#nav-review-count");
+  if (reviewCount) reviewCount.textContent = unresolved ?? "·";
+}
+
+function reviewStateLabel(activity) {
+  if (activity.confirmation_state === "needs_clarification") return "нужно уточнить";
+  if (activity.confirmation_state === "confirmed") return "подтверждено";
+  if (activity.confirmation_state === "excluded") return "исключено";
+  if (activity.confirmation_state === "user_reported") return "зафиксировано владельцем";
+  return activity.confirmation_state || "неизвестно";
+}
+
+function reviewSourceLabel(activity) {
+  if (activity.source_kind === "codex") return "Codex";
+  if (activity.source_name === "manual_daily_checkin") return "Ручной ввод";
+  return "Источник не указан";
+}
+
+function renderReview() {
+  if (!LOOPBACK_RUNTIME) return;
+  const status = document.querySelector("#review-status");
+  const questionPanel = document.querySelector("#review-question-panel");
+  const list = document.querySelector("#review-candidate-list");
+  const caption = document.querySelector("#review-list-caption");
+  if (!reviewSnapshot) {
+    questionPanel.hidden = true;
+    caption.textContent = "—";
+    list.innerHTML = '<div class="empty-state">Открой сохранённый разбор дня.</div>';
+    return;
+  }
+
+  document.querySelector("#review-day").value = reviewSnapshot.day;
+  const activities = reviewSnapshot.activities || [];
+  const unresolved = activities.filter((activity) => activity.confirmation_state === "needs_clarification").length;
+  status.textContent = "За " + reviewSnapshot.day + ": " + activities.length + " кандидатов · " + unresolved + " требуют уточнения.";
+  status.dataset.state = reviewSnapshot.state;
+  caption.textContent = activities.length + " " + wordForm(activities.length, ["кандидат", "кандидата", "кандидатов"]);
+  list.innerHTML = activities.length
+    ? activities.map((activity, index) => [
+      '<article class="review-candidate" data-review-activity="' + escapeHtml(activity.id) + '">',
+      '<span class="review-candidate-number">' + (index + 1) + '</span>',
+      '<div><strong>' + escapeHtml(activity.title) + '</strong><small>' + escapeHtml(reviewSourceLabel(activity)) + '</small></div>',
+      '<span class="review-state review-state-' + escapeHtml(activity.confirmation_state) + '">' + escapeHtml(reviewStateLabel(activity)) + '</span>',
+      '</article>',
+    ].join("")).join("")
+    : '<div class="empty-state">В этом разборе нет кандидатов.</div>';
+
+  const clarification = reviewSnapshot.clarification;
+  const activity = activities.find((item) => item.id === clarification?.activity_id);
+  questionPanel.hidden = !clarification || !activity;
+  if (!clarification || !activity) {
+    if (reviewSnapshot.state === "confirming") status.textContent = "Все уточнения закрыты. Перед финальным подтверждением проверь список кандидатов.";
+    return;
+  }
+  document.querySelector("#review-question-title").textContent = activity.title;
+  document.querySelector("#review-question-text").textContent = clarification.question;
+  document.querySelector("#review-question-source").textContent = "Источник: " + reviewSourceLabel(activity) + " · наблюдение " + (activity.observed_at || "без времени");
+}
+
+async function reviewRequest(path, options = {}) {
+  const response = await fetch(path, {
+    headers: options.body ? { "Content-Type": "application/json" } : undefined,
+    ...options,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.detail || "Локальный API вернул ошибку.");
+  return payload;
+}
+
+async function loadReview(day = null) {
+  if (!LOOPBACK_RUNTIME || reviewLoading) return;
+  reviewLoading = true;
+  const status = document.querySelector("#review-status");
+  status.textContent = "Загрузка локального разбора…";
+  try {
+    const path = day
+      ? "/v1/checkins/by-day/" + encodeURIComponent(day) + "?timezone=Europe%2FMoscow"
+      : "/v1/checkins/latest-open?timezone=Europe%2FMoscow";
+    reviewSnapshot = await reviewRequest(path);
+    renderReview();
+  } catch (error) {
+    reviewSnapshot = null;
+    document.querySelector("#review-question-panel").hidden = true;
+    document.querySelector("#review-candidate-list").innerHTML = '<div class="empty-state">' + escapeHtml(error.message) + "</div>";
+    document.querySelector("#review-list-caption").textContent = "нет данных";
+    status.textContent = "Разбор не открыт: " + error.message;
+    status.dataset.state = "error";
+  } finally {
+    reviewLoading = false;
+    renderCounts();
+  }
+}
+
+async function submitReviewAnswer(event) {
+  event.preventDefault();
+  const clarification = reviewSnapshot?.clarification;
+  const answer = document.querySelector("#review-answer").value.trim();
+  if (!clarification || !answer || reviewLoading) return;
+  reviewLoading = true;
+  try {
+    reviewSnapshot = await reviewRequest("/v1/clarifications/" + encodeURIComponent(clarification.id) + "/answer", {
+      method: "POST",
+      body: JSON.stringify({ answer, idempotency_key: newId() }),
+    });
+    document.querySelector("#review-answer").value = "";
+    renderReview();
+    renderCounts();
+    showToast("Ответ сохранён. Показан следующий вопрос.");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    reviewLoading = false;
+  }
+}
+
+async function excludeReviewCandidate() {
+  const clarification = reviewSnapshot?.clarification;
+  if (!clarification || reviewLoading) return;
+  if (!window.confirm("Исключить этот кандидат из разбора дня? Само наблюдение Codex останется в журнале.")) return;
+  reviewLoading = true;
+  try {
+    reviewSnapshot = await reviewRequest("/v1/clarifications/" + encodeURIComponent(clarification.id) + "/exclude", {
+      method: "POST",
+      body: JSON.stringify({ idempotency_key: newId() }),
+    });
+    document.querySelector("#review-answer").value = "";
+    renderReview();
+    renderCounts();
+    showToast("Кандидат исключён. Показан следующий вопрос.");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    reviewLoading = false;
+  }
+}
+
+function configureRuntimeControls() {
+  document.querySelectorAll("[data-runtime-only]").forEach((element) => {
+    element.hidden = !LOOPBACK_RUNTIME;
+  });
+  document.querySelectorAll("[data-task-register-only]").forEach((element) => {
+    element.hidden = LOOPBACK_RUNTIME;
+  });
+  if (!LOOPBACK_RUNTIME) return;
+  document.querySelectorAll(".mobile-nav").forEach((nav) => nav.classList.add("is-runtime-review"));
+  document.querySelectorAll(".privacy-pill").forEach((pill) => pill.innerHTML = "<i></i> local runtime");
 }
 
 function render() {
@@ -380,6 +532,10 @@ function render() {
 }
 
 function switchView(view, projectId = null) {
+  if (view === "review" && !LOOPBACK_RUNTIME) {
+    showToast("Разбор дня доступен только в локальном кабинете.");
+    return;
+  }
   if (view === "project") currentProjectId = projectId || currentProjectId;
   currentView = view;
   document.querySelectorAll("[data-view]").forEach((section) => {
@@ -397,6 +553,7 @@ function switchView(view, projectId = null) {
   document.querySelector("#view-kicker").textContent = meta?.[0] || "СПИСОК";
   document.querySelector("#view-title").textContent = meta?.[1] || "Задачи";
   render();
+  if (view === "review" && !reviewSnapshot) loadReview();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -811,6 +968,13 @@ document.querySelector("#task-search").addEventListener("input", renderTasks);
 document.querySelector("#project-filter").addEventListener("change", renderTasks);
 document.querySelector("#status-filter").addEventListener("change", renderTasks);
 document.querySelector("#analytics-period").addEventListener("change", renderAnalytics);
+document.querySelector("#review-date-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const day = document.querySelector("#review-day").value;
+  if (day) loadReview(day);
+});
+document.querySelector("#review-answer-form").addEventListener("submit", submitReviewAnswer);
+document.querySelector("#review-exclude").addEventListener("click", excludeReviewCandidate);
 document.querySelector("#delete-project-button").addEventListener("click", () => deleteProject(currentProjectId));
 document.querySelector("#export-button").addEventListener("click", exportData);
 document.querySelector("#dismiss-notice").addEventListener("click", () => {
@@ -829,5 +993,7 @@ document.querySelector("#remove-demo").addEventListener("click", () => {
 });
 
 if (localStorage.getItem(NOTICE_KEY)) document.querySelector("#prototype-notice").hidden = true;
+configureRuntimeControls();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 render();
+if (LOOPBACK_RUNTIME) switchView("review");

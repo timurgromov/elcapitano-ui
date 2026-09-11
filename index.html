@@ -7,9 +7,9 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="description" content="ElCapitano — локальный список задач с проектами и статусами." />
     <title>ElCapitano — задачи</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=20260911-5" />
-    <link rel="icon" href="./icon.svg?v=20260911-5" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=20260911-5" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260911-6" />
+    <link rel="icon" href="./icon.svg?v=20260911-6" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=20260911-6" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">К содержанию</a>
@@ -27,24 +27,27 @@
         </div>
 
         <nav class="primary-nav">
-          <button class="nav-item is-active" type="button" data-view-target="tasks" aria-current="page">
+          <button class="nav-item is-active" type="button" data-view-target="tasks" aria-current="page" data-task-register-only>
             <span aria-hidden="true">☷</span><span>Все задачи</span><b id="nav-task-count">0</b>
           </button>
-          <button class="nav-item" type="button" data-view-target="inbox">
+          <button class="nav-item" type="button" data-view-target="inbox" data-task-register-only>
             <span aria-hidden="true">⌑</span><span>Входящие</span><b id="nav-inbox-count">0</b>
           </button>
-          <button class="nav-item" type="button" data-view-target="projects">
+          <button class="nav-item" type="button" data-view-target="projects" data-task-register-only>
             <span aria-hidden="true">□</span><span>Проекты</span><b id="nav-project-count">0</b>
           </button>
-          <button class="nav-item" type="button" data-view-target="completed">
+          <button class="nav-item" type="button" data-view-target="completed" data-task-register-only>
             <span aria-hidden="true">✓</span><span>Выполненные</span><b id="nav-completed-count">0</b>
           </button>
-          <button class="nav-item" type="button" data-view-target="analytics">
+          <button class="nav-item" type="button" data-view-target="analytics" data-task-register-only>
             <span aria-hidden="true">↗</span><span>Аналитика</span><b aria-hidden="true">·</b>
+          </button>
+          <button class="nav-item" type="button" data-view-target="review" data-runtime-only hidden>
+            <span aria-hidden="true">◌</span><span>Разбор дня</span><b id="nav-review-count">?</b>
           </button>
         </nav>
 
-        <section class="sidebar-projects" aria-labelledby="sidebar-projects-title">
+        <section class="sidebar-projects" aria-labelledby="sidebar-projects-title" data-task-register-only>
           <div class="sidebar-section-head">
             <p id="sidebar-projects-title">Проекты</p>
             <button type="button" data-open-project-dialog aria-label="Создать проект">＋</button>
@@ -52,7 +55,7 @@
           <div id="sidebar-project-list" class="sidebar-project-list"></div>
         </section>
 
-        <div class="sidebar-foot">
+        <div class="sidebar-foot" data-task-register-only>
           <div class="status-line"><i class="status-dot"></i> Только этот браузер</div>
           <button class="text-button" type="button" id="export-button">Экспортировать JSON</button>
         </div>
@@ -64,14 +67,14 @@
             <p class="kicker" id="view-kicker">СПИСОК</p>
             <h1 id="view-title">Все задачи</h1>
           </div>
-          <div class="topbar-actions">
+          <div class="topbar-actions" data-task-register-only>
             <span class="privacy-pill"><i></i> local-only</span>
             <button class="button button-secondary" type="button" data-open-project-dialog>Создать проект</button>
             <button class="button button-primary" type="button" data-focus-capture>＋ Добавить задачи</button>
           </div>
         </header>
 
-        <div class="prototype-notice" id="prototype-notice">
+        <div class="prototype-notice" id="prototype-notice" data-task-register-only>
           <span><strong>Прототип.</strong> Задачи сохраняются только в этом браузере.</span>
           <span class="notice-actions">
             <button class="notice-start" type="button" id="remove-demo">Убрать демо</button>
@@ -79,7 +82,7 @@
           </span>
         </div>
 
-        <section class="view is-active" data-view="tasks" aria-labelledby="view-title">
+        <section class="view is-active" data-view="tasks" aria-labelledby="view-title" data-task-register-only>
           <section class="capture-panel" aria-labelledby="capture-title">
             <div class="capture-copy">
               <h2 id="capture-title">Новые задачи</h2>
@@ -122,7 +125,7 @@
           </section>
         </section>
 
-        <section class="view" data-view="inbox" aria-labelledby="view-title" hidden>
+        <section class="view" data-view="inbox" aria-labelledby="view-title" hidden data-task-register-only>
           <section class="list-panel">
             <div class="list-toolbar"><div><h2>Задачи без проекта</h2><p>Назначь проект прямо в строке — задача сразу уйдёт из входящих.</p></div></div>
             <div class="task-table-head" aria-hidden="true"><span>№</span><span></span><span>Задача</span><span>Проект</span><span>Статус</span><span></span></div>
@@ -130,7 +133,7 @@
           </section>
         </section>
 
-        <section class="view" data-view="projects" aria-labelledby="view-title" hidden>
+        <section class="view" data-view="projects" aria-labelledby="view-title" hidden data-task-register-only>
           <section class="projects-panel">
             <div class="section-head">
               <div><h2>Все проекты</h2><p>Перетаскивай проекты, чтобы менять их порядок.</p></div>
@@ -140,7 +143,7 @@
           </section>
         </section>
 
-        <section class="view" data-view="completed" aria-labelledby="view-title" hidden>
+        <section class="view" data-view="completed" aria-labelledby="view-title" hidden data-task-register-only>
           <section class="list-panel">
             <div class="list-toolbar"><div><h2>Выполненные задачи</h2><p>Снятие чекбокса вернёт задачу в общий список.</p></div></div>
             <div class="task-table-head" aria-hidden="true"><span>№</span><span></span><span>Задача</span><span>Проект</span><span>Статус</span><span></span></div>
@@ -148,7 +151,7 @@
           </section>
         </section>
 
-        <section class="view" data-view="analytics" aria-labelledby="view-title" hidden>
+        <section class="view" data-view="analytics" aria-labelledby="view-title" hidden data-task-register-only>
           <section class="analytics-panel">
             <div class="analytics-head">
               <div>
@@ -182,7 +185,47 @@
           </section>
         </section>
 
-        <section class="view" data-view="project" aria-labelledby="view-title" hidden>
+        <section class="view" data-view="review" aria-labelledby="view-title" hidden>
+          <section class="review-panel">
+            <div class="review-head">
+              <div>
+                <p class="kicker">ЛОКАЛЬНЫЙ POSTGRESQL</p>
+                <h2>Разбор найденной работы</h2>
+                <p>Это кандидаты из Codex, а не автоматически выполненные задачи. Разбираем один вопрос за раз.</p>
+              </div>
+              <form class="review-date-form" id="review-date-form">
+                <label><span>Дата</span><input id="review-day" type="date" required /></label>
+                <button class="button button-secondary" type="submit">Открыть</button>
+              </form>
+            </div>
+            <div id="review-status" class="review-status" role="status" aria-live="polite">Загрузка разбора…</div>
+          </section>
+
+          <section id="review-question-panel" class="review-question-panel" hidden>
+            <div class="review-question-copy">
+              <p class="kicker">ТЕКУЩЕЕ УТОЧНЕНИЕ</p>
+              <h2 id="review-question-title"></h2>
+              <p id="review-question-text"></p>
+              <small id="review-question-source"></small>
+            </div>
+            <form id="review-answer-form" class="review-answer-form">
+              <label for="review-answer">Что конкретно было сделано?</label>
+              <textarea id="review-answer" rows="4" maxlength="2000" required placeholder="Например: проверил X, исправил Y, результат — Z."></textarea>
+              <div class="review-actions">
+                <button class="button button-primary" type="submit">Сохранить ответ и дальше</button>
+                <button class="button button-secondary" type="button" id="review-exclude">Не учитывать</button>
+              </div>
+              <p class="review-hint">«Не учитывать» исключает только этот кандидат из разбора — исходное наблюдение Codex не удаляется.</p>
+            </form>
+          </section>
+
+          <section class="review-list-panel">
+            <div class="analytics-card-head"><h2>Все кандидаты дня</h2><span id="review-list-caption">—</span></div>
+            <div id="review-candidate-list" class="review-candidate-list"></div>
+          </section>
+        </section>
+
+        <section class="view" data-view="project" aria-labelledby="view-title" hidden data-task-register-only>
           <div class="project-header">
             <button class="back-button" type="button" data-view-target="projects">← Все проекты</button>
             <button class="text-button danger-text" type="button" id="delete-project-button">Удалить проект</button>
@@ -204,13 +247,14 @@
     </div>
 
     <nav class="mobile-nav" aria-label="Мобильная навигация">
-      <button class="is-active" type="button" data-view-target="tasks"><span>☷</span>Задачи</button>
-      <button type="button" data-view-target="inbox"><span>⌑</span>Входящие</button>
-      <button type="button" data-view-target="projects"><span>□</span>Проекты</button>
-      <button type="button" data-view-target="completed"><span>✓</span>Готово</button>
-      <button type="button" data-view-target="analytics"><span>↗</span>Аналитика</button>
+      <button class="is-active" type="button" data-view-target="tasks" data-task-register-only><span>☷</span>Задачи</button>
+      <button type="button" data-view-target="inbox" data-task-register-only><span>⌑</span>Входящие</button>
+      <button type="button" data-view-target="projects" data-task-register-only><span>□</span>Проекты</button>
+      <button type="button" data-view-target="completed" data-task-register-only><span>✓</span>Готово</button>
+      <button type="button" data-view-target="analytics" data-task-register-only><span>↗</span>Аналитика</button>
+      <button type="button" data-view-target="review" data-runtime-only hidden><span>◌</span>Разбор</button>
     </nav>
-    <button class="mobile-fab" type="button" data-focus-capture aria-label="Добавить задачи">＋</button>
+    <button class="mobile-fab" type="button" data-focus-capture aria-label="Добавить задачи" data-task-register-only>＋</button>
 
     <dialog id="project-dialog" class="dialog">
       <form method="dialog" id="project-form">
@@ -228,6 +272,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=20260911-5" defer></script>
+    <script src="./app.js?v=20260911-6" defer></script>
   </body>
 </html>
