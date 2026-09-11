@@ -203,19 +203,31 @@ function renderTaskList(containerId, tasks, emptyText) {
     : '<div class="empty-state">' + escapeHtml(emptyText) + "</div>";
 }
 
+function taskBelongsToToday(task) {
+  const date = task.status === "done" ? task.completedAt : task.createdAt;
+  return date === todayIso();
+}
+
+function todayTaskOrder(left, right) {
+  const completionGroup = Number(left.status !== "done") - Number(right.status !== "done");
+  return completionGroup || left.order - right.order;
+}
+
 function filteredMainTasks() {
   const query = document.querySelector("#task-search").value.trim().toLowerCase();
   const projectId = document.querySelector("#project-filter").value;
   const status = document.querySelector("#status-filter").value;
-  return sortedTasks().filter((task) => {
+  const tasks = sortedTasks().filter((task) => {
     const project = projectById(task.projectId);
     if (query && !(task.title + " " + (project?.name || "")).toLowerCase().includes(query)) return false;
     if (projectId === "none" && task.projectId) return false;
     if (!["all", "none"].includes(projectId) && task.projectId !== projectId) return false;
+    if (status === "today" && !taskBelongsToToday(task)) return false;
     if (status === "active" && task.status === "done") return false;
-    if (!["active", "all"].includes(status) && task.status !== status) return false;
+    if (!["active", "today", "all"].includes(status) && task.status !== status) return false;
     return true;
   });
+  return status === "today" ? tasks.sort(todayTaskOrder) : tasks;
 }
 
 function renderFilters() {
