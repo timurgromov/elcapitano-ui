@@ -76,6 +76,14 @@ function loadState() {
 }
 
 function normalizeState(value) {
+  const tasks = value.tasks.map((task, index) => ({
+    ...task,
+    projectId: task.projectId || null,
+    status: STATUS_LABELS[task.status] ? task.status : "todo",
+    order: Number.isFinite(task.order) ? task.order : index,
+    todaySelectedAt: localDate(task.todaySelectedAt) ? task.todaySelectedAt : null,
+  }));
+  rollForwardTodaySelections(tasks);
   return {
     schema: "elcapitano-task-register-v2",
     mode: value.mode || "local_only",
@@ -83,13 +91,7 @@ function normalizeState(value) {
       ...project,
       order: Number.isFinite(project.order) ? project.order : index,
     })),
-    tasks: value.tasks.map((task, index) => ({
-      ...task,
-      projectId: task.projectId || null,
-      status: STATUS_LABELS[task.status] ? task.status : "todo",
-      order: Number.isFinite(task.order) ? task.order : index,
-      todaySelectedAt: localDate(task.todaySelectedAt) ? task.todaySelectedAt : null,
-    })),
+    tasks,
   };
 }
 
@@ -184,7 +186,7 @@ function taskRow(task, index, listId, options = {}) {
   const done = task.status === "done";
   const reorderable = options.reorderable !== false;
   const todayAction = !done
-    ? '<button class="today-toggle' + (task.todaySelectedAt === todayIso() ? " is-selected" : "") + '" type="button" data-toggle-today="' + escapeHtml(task.id) + '">' + (task.todaySelectedAt === todayIso() ? "Убрать из сегодня" : "Добавить на сегодня") + "</button>"
+    ? '<button class="today-toggle' + (task.todaySelectedAt === todayIso() ? " is-selected" : "") + '" type="button" data-toggle-today="' + escapeHtml(task.id) + '">' + (task.todaySelectedAt === todayIso() ? "Отправить в активные" : "Отправить на сегодня") + "</button>"
     : "";
   const completionDate = done
     ? '<label class="completion-date"><span>Готово</span><input type="date" value="' + escapeHtml(task.completedAt || "") + '" data-task-completed-at="' + escapeHtml(task.id) + '" aria-label="Дата выполнения задачи" /></label>'
@@ -293,6 +295,14 @@ function localDate(value) {
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+}
+
+function rollForwardTodaySelections(tasks) {
+  const operationalDay = todayIso();
+  tasks.forEach((task) => {
+    if (task.status === "done" || !localDate(task.todaySelectedAt) || task.todaySelectedAt >= operationalDay) return;
+    task.todaySelectedAt = operationalDay;
+  });
 }
 
 function groupCompletedTasks(tasks) {
