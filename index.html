@@ -7,9 +7,9 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="description" content="ElCapitano — локальный список задач с проектами и статусами." />
     <title>ElCapitano — задачи</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=20260911-10" />
-    <link rel="icon" href="./icon.svg?v=20260911-10" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=20260911-10" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260911-11" />
+    <link rel="icon" href="./icon.svg?v=20260911-11" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=20260911-11" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">К содержанию</a>
@@ -37,7 +37,7 @@
             <span aria-hidden="true">□</span><span>Проекты</span><b id="nav-project-count">0</b>
           </button>
           <button class="nav-item" type="button" data-view-target="completed" data-task-register-only>
-            <span aria-hidden="true">✓</span><span>Выполненные</span><b id="nav-completed-count">0</b>
+            <span aria-hidden="true">✓</span><span>Архив</span><b id="nav-completed-count">0</b>
           </button>
           <button class="nav-item" type="button" data-view-target="analytics" data-task-register-only>
             <span aria-hidden="true">↗</span><span>Аналитика</span><b aria-hidden="true">·</b>
@@ -151,7 +151,7 @@
 
         <section class="view" data-view="completed" aria-labelledby="view-title" hidden data-task-register-only>
           <section class="list-panel">
-            <div class="list-toolbar"><div><h2>Выполненные задачи</h2><p>Снятие чекбокса вернёт задачу в общий список.</p></div></div>
+            <div class="list-toolbar"><div><h2>Архив задач</h2><p>Задачи сгруппированы по фактической дате выполнения. Снятие галочки вернёт задачу в общий список.</p></div></div>
             <div class="task-table-head" aria-hidden="true"><span>№</span><span></span><span>Задача</span><span>Проект</span><span>Статус</span><span></span></div>
             <div id="completed-task-list" class="task-list"></div>
           </section>
@@ -256,7 +256,7 @@
       <button class="is-active" type="button" data-view-target="tasks" data-task-register-only><span>☷</span>Задачи</button>
       <button type="button" data-view-target="inbox" data-task-register-only><span>!</span>Не определено</button>
       <button type="button" data-view-target="projects" data-task-register-only><span>□</span>Проекты</button>
-      <button type="button" data-view-target="completed" data-task-register-only><span>✓</span>Готово</button>
+      <button type="button" data-view-target="completed" data-task-register-only><span>✓</span>Архив</button>
       <button type="button" data-view-target="analytics" data-task-register-only><span>↗</span>Аналитика</button>
       <button type="button" data-view-target="review" data-runtime-only hidden><span>◌</span>Разбор</button>
     </nav>
@@ -278,6 +278,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=20260911-10" defer></script>
+    <script src="./app.js?v=20260911-11" defer></script>
   </body>
 </html>

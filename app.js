@@ -16,7 +16,7 @@ const VIEW_META = {
   tasks: ["СПИСОК", "Все задачи"],
   inbox: ["ТРЕБУЕТ РЕШЕНИЯ", "Неопределённые"],
   projects: ["СПИСОК", "Проекты"],
-  completed: ["АРХИВ РЕЗУЛЬТАТОВ", "Выполненные"],
+  completed: ["АРХИВ ЗАДАЧ", "Архив"],
   analytics: ["СВОДКА", "Аналитика"],
   review: ["ПОДТВЕРЖДЕНИЕ ФАКТОВ", "Разбор дня"],
 };
@@ -176,17 +176,18 @@ function statusOptions(selected) {
     .join("");
 }
 
-function taskRow(task, index, listId) {
+function taskRow(task, index, listId, options = {}) {
   const done = task.status === "done";
+  const reorderable = options.reorderable !== false;
   const completionDate = done
     ? '<label class="completion-date"><span>Готово</span><input type="date" value="' + escapeHtml(task.completedAt || "") + '" data-task-completed-at="' + escapeHtml(task.id) + '" aria-label="Дата выполнения задачи" /></label>'
     : "";
+  const orderCell = reorderable
+    ? '<div class="order-cell"><button class="drag-handle" type="button" data-drag-task="' + escapeHtml(task.id) + '" data-list-id="' + escapeHtml(listId) + '" aria-label="Изменить порядок задачи ' + (index + 1) + '" title="Перетащить или использовать стрелки">⠿</button><span class="task-number">' + (index + 1) + "</span></div>"
+    : '<div class="order-cell is-static"><span class="task-number">' + (index + 1) + "</span></div>";
   return [
     '<article class="task-row' + (done ? " is-done" : "") + '" data-task-id="' + escapeHtml(task.id) + '">',
-    '<div class="order-cell">',
-    '<button class="drag-handle" type="button" data-drag-task="' + escapeHtml(task.id) + '" data-list-id="' + escapeHtml(listId) + '" aria-label="Изменить порядок задачи ' + (index + 1) + '" title="Перетащить или использовать стрелки">⠿</button>',
-    '<span class="task-number">' + (index + 1) + "</span>",
-    "</div>",
+    orderCell,
     '<button class="task-check' + (done ? " is-complete" : "") + '" type="button" data-toggle-complete="' + escapeHtml(task.id) + '" aria-label="' + (done ? "Вернуть задачу в работу" : "Отметить задачу выполненной") + '">✓</button>',
     '<div class="task-title"><strong class="editable-name" contenteditable="plaintext-only" role="textbox" aria-multiline="false" aria-label="Редактировать название задачи" spellcheck="true" data-edit-task-title="' + escapeHtml(task.id) + '">' + escapeHtml(task.title) + '</strong><div class="task-meta"><small>' + escapeHtml(task.source || "Ручной ввод") + "</small>" + completionDate + "</div></div>",
     '<label class="inline-field"><span class="sr-only">Проект задачи</span><select data-task-project="' + escapeHtml(task.id) + '">' + projectOptions(task.projectId) + "</select></label>",
@@ -257,13 +258,57 @@ function renderInbox() {
 
 function renderCompleted() {
   const tasks = sortedTasks().filter((task) => task.status === "done");
-  renderTaskList("completed-task-list", tasks, "Выполненных задач пока нет.");
+  const container = document.querySelector("#completed-task-list");
+  if (!tasks.length) {
+    container.innerHTML = '<div class="empty-state">В архиве пока нет задач.</div>';
+    return;
+  }
+
+  const groups = groupCompletedTasks(tasks);
+  let taskNumber = 0;
+  container.innerHTML = groups.map(([date, groupedTasks]) => {
+    const rows = groupedTasks.map((task) => {
+      taskNumber += 1;
+      return taskRow(task, taskNumber - 1, "completed-task-list", { reorderable: false });
+    }).join("");
+    return [
+      '<section class="archive-group" data-archive-date="' + escapeHtml(date) + '">',
+      '<header class="archive-date-head"><h3>' + escapeHtml(archiveDateLabel(date)) + '</h3><span>' + groupedTasks.length + " " + wordForm(groupedTasks.length, ["задача", "задачи", "задач"]) + "</span></header>",
+      '<div class="archive-group-list">' + rows + "</div>",
+      "</section>",
+    ].join("");
+  }).join("");
 }
 
 function localDate(value) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+}
+
+function groupCompletedTasks(tasks) {
+  const groups = new Map();
+  tasks.forEach((task) => {
+    const date = localDate(task.completedAt) ? task.completedAt : "undated";
+    if (!groups.has(date)) groups.set(date, []);
+    groups.get(date).push(task);
+  });
+  return [...groups.entries()].sort(([left], [right]) => {
+    if (left === "undated") return 1;
+    if (right === "undated") return -1;
+    return right.localeCompare(left);
+  });
+}
+
+function archiveDateLabel(date) {
+  if (date === "undated") return "Без даты";
+  const label = new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(localDate(date));
+  return date === todayIso() ? "Сегодня · " + label : label;
 }
 
 function analyticsWindow() {
@@ -323,7 +368,10 @@ function renderAnalytics() {
   const days = [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   const maximum = Math.max(1, ...days.map(([, count]) => count));
   document.querySelector("#analytics-by-day").innerHTML = days.length
-    ? days.map(([day, count]) => '<div class="analytics-day"><span>' + formatTaskDate(day) + '</span><i><b style="width:' + Math.round((count / maximum) * 100) + '%"></b></i><strong>' + count + "</strong></div>").join("")
+    ? days.map(([day, count]) => {
+      const width = Math.ceil((count / maximum) * 10) * 10;
+      return '<div class="analytics-day"><span>' + formatTaskDate(day) + '</span><i><b class="analytics-bar-' + width + '"></b></i><strong>' + count + "</strong></div>";
+    }).join("")
     : analyticsEmpty("Нет дат выполнения для построения ритма.");
 
   const withCompletionDate = state.tasks.filter((task) => task.status === "done" && localDate(task.completedAt)).length;
