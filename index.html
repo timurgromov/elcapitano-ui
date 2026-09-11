@@ -7,9 +7,9 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="description" content="ElCapitano — локальный список задач с проектами и статусами." />
     <title>ElCapitano — задачи</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=20260911-12" />
-    <link rel="icon" href="./icon.svg?v=20260911-12" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=20260911-12" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260911-13" />
+    <link rel="icon" href="./icon.svg?v=20260911-13" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=20260911-13" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">К содержанию</a>
@@ -46,14 +46,6 @@
             <span aria-hidden="true">◌</span><span>Разбор дня</span><b id="nav-review-count">?</b>
           </button>
         </nav>
-
-        <section class="sidebar-projects" aria-labelledby="sidebar-projects-title" data-task-register-only>
-          <div class="sidebar-section-head">
-            <p id="sidebar-projects-title">Проекты</p>
-            <button type="button" data-open-project-dialog aria-label="Создать проект">＋</button>
-          </div>
-          <div id="sidebar-project-list" class="sidebar-project-list"></div>
-        </section>
 
         <div class="sidebar-foot" data-task-register-only>
           <div class="status-line"><i class="status-dot"></i> Только этот браузер</div>
@@ -101,6 +93,10 @@
                   <span class="sr-only">Проект новых задач</span>
                   <select data-capture-project aria-label="Проект новых задач"></select>
                 </label>
+                <label>
+                  <span class="sr-only">Куда добавить новые задачи</span>
+                  <select data-capture-destination aria-label="Куда добавить новые задачи"><option value="active">Активные</option><option value="today">Сегодня</option></select>
+                </label>
                 <button class="button button-primary" type="submit">Добавить задачи</button>
               </div>
             </form>
@@ -143,7 +139,10 @@
           <section class="projects-panel">
             <div class="section-head">
               <div><h2>Все проекты</h2><p>Перетаскивай проекты, чтобы менять их порядок.</p></div>
-              <button class="button button-primary" type="button" data-open-project-dialog>＋ Создать проект</button>
+              <div class="section-actions">
+                <label class="project-state-filter"><span>Показать</span><select id="project-status-filter" aria-label="Показать задачи проектов"><option value="active">Активные</option><option value="archive">Архив</option></select></label>
+                <button class="button button-primary" type="button" data-open-project-dialog>＋ Создать проект</button>
+              </div>
             </div>
             <div id="project-list" class="project-list"></div>
           </section>
@@ -241,7 +240,13 @@
             <form class="capture-form" data-capture-form="project">
               <label class="sr-only" for="project-task-capture">Новые задачи проекта</label>
               <textarea id="project-task-capture" data-capture-input rows="3" placeholder="Новая задача"></textarea>
-              <div class="capture-actions"><button class="button button-primary" type="submit">Добавить задачи</button></div>
+              <div class="capture-actions">
+                <label>
+                  <span class="sr-only">Куда добавить новые задачи</span>
+                  <select data-capture-destination aria-label="Куда добавить новые задачи"><option value="active">Активные</option><option value="today">Сегодня</option></select>
+                </label>
+                <button class="button button-primary" type="submit">Добавить задачи</button>
+              </div>
             </form>
           </section>
           <section class="list-panel">
@@ -278,6 +283,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=20260911-12" defer></script>
+    <script src="./app.js?v=20260911-13" defer></script>
   </body>
 </html>

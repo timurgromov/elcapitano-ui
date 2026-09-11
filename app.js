@@ -88,6 +88,7 @@ function normalizeState(value) {
       projectId: task.projectId || null,
       status: STATUS_LABELS[task.status] ? task.status : "todo",
       order: Number.isFinite(task.order) ? task.order : index,
+      todaySelectedAt: localDate(task.todaySelectedAt) ? task.todaySelectedAt : null,
     })),
   };
 }
@@ -121,6 +122,7 @@ function migrateLegacyState(legacy) {
         source: task.source || "Ручной ввод",
         createdAt: task.createdAt || todayIso(),
         completedAt: task.completedAt || null,
+        todaySelectedAt: null,
         isDemo: Boolean(task.isDemo),
       })),
   });
@@ -181,6 +183,9 @@ function statusOptions(selected) {
 function taskRow(task, index, listId, options = {}) {
   const done = task.status === "done";
   const reorderable = options.reorderable !== false;
+  const todayAction = !done
+    ? '<button class="today-toggle' + (task.todaySelectedAt === todayIso() ? " is-selected" : "") + '" type="button" data-toggle-today="' + escapeHtml(task.id) + '">' + (task.todaySelectedAt === todayIso() ? "Убрать из сегодня" : "Добавить на сегодня") + "</button>"
+    : "";
   const completionDate = done
     ? '<label class="completion-date"><span>Готово</span><input type="date" value="' + escapeHtml(task.completedAt || "") + '" data-task-completed-at="' + escapeHtml(task.id) + '" aria-label="Дата выполнения задачи" /></label>'
     : "";
@@ -191,7 +196,7 @@ function taskRow(task, index, listId, options = {}) {
     '<article class="task-row' + (done ? " is-done" : "") + '" data-task-id="' + escapeHtml(task.id) + '">',
     orderCell,
     '<button class="task-check' + (done ? " is-complete" : "") + '" type="button" data-toggle-complete="' + escapeHtml(task.id) + '" aria-label="' + (done ? "Вернуть задачу в работу" : "Отметить задачу выполненной") + '">✓</button>',
-    '<div class="task-title"><strong class="editable-name" contenteditable="plaintext-only" role="textbox" aria-multiline="false" aria-label="Редактировать название задачи" spellcheck="true" data-edit-task-title="' + escapeHtml(task.id) + '">' + escapeHtml(task.title) + '</strong><div class="task-meta"><small>' + escapeHtml(task.source || "Ручной ввод") + "</small>" + completionDate + "</div></div>",
+    '<div class="task-title"><strong class="editable-name" contenteditable="plaintext-only" role="textbox" aria-multiline="false" aria-label="Редактировать название задачи" spellcheck="true" data-edit-task-title="' + escapeHtml(task.id) + '">' + escapeHtml(task.title) + '</strong><div class="task-meta"><small>' + escapeHtml(task.source || "Ручной ввод") + "</small>" + todayAction + completionDate + "</div></div>",
     '<label class="inline-field"><span class="sr-only">Проект задачи</span><select data-task-project="' + escapeHtml(task.id) + '">' + projectOptions(task.projectId) + "</select></label>",
     '<label class="inline-field"><span class="sr-only">Статус задачи</span><select data-task-status="' + escapeHtml(task.id) + '">' + statusOptions(task.status) + "</select></label>",
     '<button class="row-delete" type="button" data-delete-task="' + escapeHtml(task.id) + '" aria-label="Удалить задачу">×</button>',
@@ -207,8 +212,9 @@ function renderTaskList(containerId, tasks, emptyText) {
 }
 
 function taskBelongsToToday(task) {
-  const date = task.status === "done" ? task.completedAt : task.createdAt;
-  return date === todayIso();
+  return task.status === "done"
+    ? task.completedAt === todayIso()
+    : task.todaySelectedAt === todayIso();
 }
 
 function todayTaskOrder(left, right) {
@@ -396,11 +402,15 @@ function renderProjectDetail() {
 
 function renderProjects() {
   const projects = sortedProjects();
+  const filter = document.querySelector("#project-status-filter");
+  const projectState = filter?.value === "archive" ? "archive" : "active";
   document.querySelector("#project-list").innerHTML = projects.length
     ? projects.map((project, index) => {
       const tasks = state.tasks.filter((task) => task.projectId === project.id);
       const active = tasks.filter((task) => task.status !== "done").length;
       const done = tasks.length - active;
+      const count = projectState === "archive" ? done : active;
+      const label = projectState === "archive" ? "закрыто" : "активных";
       return [
         '<article class="project-row" data-project-id="' + escapeHtml(project.id) + '">',
         '<div class="order-cell">',
@@ -409,21 +419,15 @@ function renderProjects() {
         "</div>",
         '<div class="project-title">',
         '<strong class="editable-name" contenteditable="plaintext-only" role="textbox" aria-multiline="false" aria-label="Редактировать название проекта" spellcheck="true" data-edit-project-name="' + escapeHtml(project.id) + '">' + escapeHtml(project.name) + "</strong>",
-        '<button class="project-open" type="button" data-open-project="' + escapeHtml(project.id) + '"><small>' + active + " активных · " + done + " выполнено · Открыть →</small></button>",
+        '<button class="project-open" type="button" data-open-project="' + escapeHtml(project.id) + '"><small>' + count + " " + label + " · Открыть →</small></button>",
         "</div>",
-        '<span class="project-total">' + tasks.length + "</span>",
+        '<span class="project-total">' + count + "</span>",
         '<button class="row-delete" type="button" data-delete-project="' + escapeHtml(project.id) + '" aria-label="Удалить проект ' + escapeHtml(project.name) + '">×</button>',
         "</article>",
       ].join("");
     }).join("")
     : '<div class="empty-state">Проектов пока нет. Создай первый проект одной кнопкой.</div>';
 
-  document.querySelector("#sidebar-project-list").innerHTML = projects.length
-    ? projects.map((project) => {
-      const active = state.tasks.filter((task) => task.projectId === project.id && task.status !== "done").length;
-      return '<button type="button" data-open-project="' + escapeHtml(project.id) + '"><span data-project-name-label="' + escapeHtml(project.id) + '">' + escapeHtml(project.name) + "</span><b>" + active + "</b></button>";
-    }).join("")
-    : '<span class="sidebar-empty">Пока пусто</span>';
 }
 
 function renderCounts() {
@@ -657,9 +661,10 @@ function addTasks(event) {
   const projectId = form.dataset.captureForm === "project"
     ? currentProjectId
     : form.querySelector("[data-capture-project]")?.value || null;
+  const selectToday = form.querySelector("[data-capture-destination]")?.value === "today";
   let order = Math.max(-1, ...state.tasks.map((task) => task.order)) + 1;
   lines.forEach((title) => {
-    state.tasks.push({ id: newId(), title, projectId, status: "todo", order: order++, source: "Ручной ввод", createdAt: todayIso(), completedAt: null, isDemo: false });
+    state.tasks.push({ id: newId(), title, projectId, status: "todo", order: order++, source: "Ручной ввод", createdAt: todayIso(), completedAt: null, todaySelectedAt: selectToday ? todayIso() : null, isDemo: false });
   });
   state.mode = "local_only";
   input.value = "";
@@ -673,9 +678,19 @@ function toggleComplete(id) {
   const completed = task.status === "done";
   task.status = completed ? "todo" : "done";
   task.completedAt = completed ? null : todayIso();
+  if (!completed) task.todaySelectedAt = null;
   state.mode = "local_only";
   render();
   showToast(completed ? "Задача возвращена в общий список." : "Задача перенесена в выполненные.");
+}
+
+function toggleToday(id) {
+  const task = state.tasks.find((item) => item.id === id);
+  if (!task || task.status === "done") return;
+  task.todaySelectedAt = task.todaySelectedAt === todayIso() ? null : todayIso();
+  state.mode = "local_only";
+  render();
+  showToast(task.todaySelectedAt ? "Задача добавлена на сегодня." : "Задача убрана из сегодня.");
 }
 
 function setCompletedAt(id, value) {
@@ -939,6 +954,9 @@ document.addEventListener("click", (event) => {
   const completeButton = event.target.closest("[data-toggle-complete]");
   if (completeButton) toggleComplete(completeButton.dataset.toggleComplete);
 
+  const todayButton = event.target.closest("[data-toggle-today]");
+  if (todayButton) toggleToday(todayButton.dataset.toggleToday);
+
   const deleteTaskButton = event.target.closest("[data-delete-task]");
   if (deleteTaskButton) deleteTask(deleteTaskButton.dataset.deleteTask);
 
@@ -975,6 +993,7 @@ document.addEventListener("change", (event) => {
     if (!task) return;
     task.status = statusSelect.value;
     task.completedAt = task.status === "done" ? task.completedAt || todayIso() : null;
+    if (task.status === "done") task.todaySelectedAt = null;
     state.mode = "local_only";
     render();
   }
@@ -1049,6 +1068,7 @@ document.querySelector("#project-form").addEventListener("submit", createProject
 document.querySelector("#task-search").addEventListener("input", renderTasks);
 document.querySelector("#project-filter").addEventListener("change", renderTasks);
 document.querySelector("#status-filter").addEventListener("change", renderTasks);
+document.querySelector("#project-status-filter").addEventListener("change", renderProjects);
 document.querySelector("#analytics-period").addEventListener("change", renderAnalytics);
 document.querySelector("#review-date-form").addEventListener("submit", (event) => {
   event.preventDefault();
