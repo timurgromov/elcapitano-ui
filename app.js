@@ -2,8 +2,10 @@ const STORAGE_KEY = "elcapitano.task-register.v2";
 const LEGACY_STORAGE_KEY = "elcapitano.prototype.v1";
 const NOTICE_KEY = "elcapitano.prototype.notice-dismissed";
 const OPERATIONAL_DAY_CUTOFF_HOUR = 3;
+const ELCAPITANO_RUNTIME_PATH = window.location.pathname === "/elcapitano"
+  || window.location.pathname.startsWith("/elcapitano/");
 const LOOPBACK_RUNTIME = ["127.0.0.1", "localhost", "::1"].includes(window.location.hostname)
-  && window.location.pathname.startsWith("/cabinet");
+  && ELCAPITANO_RUNTIME_PATH;
 
 const STATUS_LABELS = {
   todo: "Новая",
@@ -586,6 +588,10 @@ function configureRuntimeControls() {
     element.hidden = !LOOPBACK_RUNTIME;
   });
   document.querySelectorAll("[data-task-register-only]").forEach((element) => {
+    if (element.matches("[data-view]")) {
+      if (LOOPBACK_RUNTIME) element.hidden = true;
+      return;
+    }
     element.hidden = LOOPBACK_RUNTIME;
   });
   if (!LOOPBACK_RUNTIME) return;
@@ -1072,4 +1078,4 @@ if (localStorage.getItem(NOTICE_KEY)) document.querySelector("#prototype-notice"
 configureRuntimeControls();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 render();
-if (LOOPBACK_RUNTIME) switchView("review");
+switchView(currentView);
