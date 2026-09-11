@@ -1,6 +1,7 @@
 const STORAGE_KEY = "elcapitano.task-register.v2";
 const LEGACY_STORAGE_KEY = "elcapitano.prototype.v1";
 const NOTICE_KEY = "elcapitano.prototype.notice-dismissed";
+const OPERATIONAL_DAY_CUTOFF_HOUR = 3;
 const LOOPBACK_RUNTIME = ["127.0.0.1", "localhost", "::1"].includes(window.location.hostname)
   && window.location.pathname.startsWith("/cabinet");
 
@@ -13,7 +14,7 @@ const STATUS_LABELS = {
 
 const VIEW_META = {
   tasks: ["СПИСОК", "Все задачи"],
-  inbox: ["БЕЗ ПРОЕКТА", "Входящие"],
+  inbox: ["ТРЕБУЕТ РЕШЕНИЯ", "Неопределённые"],
   projects: ["СПИСОК", "Проекты"],
   completed: ["АРХИВ РЕЗУЛЬТАТОВ", "Выполненные"],
   analytics: ["СВОДКА", "Аналитика"],
@@ -22,6 +23,7 @@ const VIEW_META = {
 
 const todayIso = () => {
   const date = new Date();
+  if (date.getHours() < OPERATIONAL_DAY_CUTOFF_HOUR) date.setDate(date.getDate() - 1);
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return date.getFullYear() + "-" + month + "-" + day;
@@ -237,8 +239,8 @@ function renderTasks() {
 }
 
 function renderInbox() {
-  const tasks = sortedTasks().filter((task) => !task.projectId && task.status !== "done");
-  renderTaskList("inbox-task-list", tasks, "Входящие пусты — у всех активных задач назначен проект.");
+  const tasks = sortedTasks().filter((task) => !task.projectId);
+  renderTaskList("inbox-task-list", tasks, "Неопределённых задач нет — у всех задач назначен проект.");
 }
 
 function renderCompleted() {
@@ -283,7 +285,7 @@ function renderAnalytics() {
   const completed = analyticsTasks();
   const active = state.tasks.filter((task) => task.status !== "done");
   const completedWithProject = new Set(completed.map((task) => task.projectId).filter(Boolean));
-  const unassigned = state.tasks.filter((task) => !task.projectId && task.status !== "done");
+  const unassigned = state.tasks.filter((task) => !task.projectId);
   const period = document.querySelector("#analytics-period")?.value || "30";
   const periodCaption = period === "all" ? "за всё время" : "за " + period + " дней";
 
@@ -364,12 +366,24 @@ function renderProjects() {
 
 function renderCounts() {
   const active = state.tasks.filter((task) => task.status !== "done").length;
-  const inbox = state.tasks.filter((task) => !task.projectId && task.status !== "done").length;
+  const inbox = state.tasks.filter((task) => !task.projectId).length;
   const completed = state.tasks.filter((task) => task.status === "done").length;
   document.querySelector("#nav-task-count").textContent = active;
-  document.querySelector("#nav-inbox-count").textContent = inbox;
+  const inboxCount = document.querySelector("#nav-inbox-count");
+  inboxCount.textContent = inbox;
+  inboxCount.closest(".nav-item")?.classList.toggle("has-alert", inbox > 0);
+  document.querySelectorAll('.mobile-nav [data-view-target="inbox"]').forEach((button) => {
+    button.classList.toggle("has-alert", inbox > 0);
+    button.setAttribute("aria-label", inbox > 0 ? "Неопределённые задачи: " + inbox : "Неопределённых задач нет");
+  });
   document.querySelector("#nav-project-count").textContent = state.projects.length;
   document.querySelector("#nav-completed-count").textContent = completed;
+  const assignmentNotice = document.querySelector("#assignment-notice");
+  const assignmentCount = document.querySelector("#assignment-notice-count");
+  if (assignmentNotice && assignmentCount) {
+    assignmentNotice.hidden = inbox === 0;
+    assignmentCount.textContent = inbox + " " + wordForm(inbox, ["задача требует проекта", "задачи требуют проекта", "задач требуют проекта"]);
+  }
   const unresolved = reviewSnapshot?.activities?.filter((activity) => activity.confirmation_state === "needs_clarification").length;
   const reviewCount = document.querySelector("#nav-review-count");
   if (reviewCount) reviewCount.textContent = unresolved ?? "·";
@@ -664,7 +678,7 @@ function createProject(event) {
 function deleteProject(id) {
   const project = projectById(id);
   if (!project) return;
-  if (!window.confirm("Удалить проект «" + project.name + "»? Задачи останутся во входящих.")) return;
+  if (!window.confirm("Удалить проект «" + project.name + "»? Задачи останутся неопределёнными.")) return;
   state.tasks.forEach((task) => {
     if (task.projectId === id) task.projectId = null;
   });
@@ -672,7 +686,7 @@ function deleteProject(id) {
   state.mode = "local_only";
   if (currentProjectId === id) switchView("projects");
   else render();
-  showToast("Проект удалён. Его задачи перенесены во входящие.");
+  showToast("Проект удалён. Его задачи перенесены в неопределённые.");
 }
 
 function deleteTask(id) {
@@ -835,6 +849,7 @@ function showToast(message) {
 function exportData() {
   const payload = {
     schema: "elcapitano-task-register-v2",
+    operationalDayCutoffHour: OPERATIONAL_DAY_CUTOFF_HOUR,
     exportedAt: new Date().toISOString(),
     projects: state.projects,
     tasks: state.tasks,
@@ -870,6 +885,7 @@ document.addEventListener("click", (event) => {
     if (currentView !== "tasks") switchView("tasks");
     setTimeout(() => document.querySelector("#task-capture").focus(), 0);
   }
+  if (event.target.closest("[data-review-unassigned]")) switchView("inbox");
 });
 
 document.addEventListener("change", (event) => {

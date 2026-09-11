@@ -7,9 +7,9 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="description" content="ElCapitano — локальный список задач с проектами и статусами." />
     <title>ElCapitano — задачи</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=20260911-6" />
-    <link rel="icon" href="./icon.svg?v=20260911-6" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=20260911-6" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260911-8" />
+    <link rel="icon" href="./icon.svg?v=20260911-8" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=20260911-8" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">К содержанию</a>
@@ -31,7 +31,7 @@
             <span aria-hidden="true">☷</span><span>Все задачи</span><b id="nav-task-count">0</b>
           </button>
           <button class="nav-item" type="button" data-view-target="inbox" data-task-register-only>
-            <span aria-hidden="true">⌑</span><span>Входящие</span><b id="nav-inbox-count">0</b>
+            <span aria-hidden="true">!</span><span>Неопределённые</span><b id="nav-inbox-count">0</b>
           </button>
           <button class="nav-item" type="button" data-view-target="projects" data-task-register-only>
             <span aria-hidden="true">□</span><span>Проекты</span><b id="nav-project-count">0</b>
@@ -82,6 +82,11 @@
           </span>
         </div>
 
+        <div class="assignment-notice" id="assignment-notice" hidden data-task-register-only>
+          <span><strong id="assignment-notice-count">0 задач требуют проекта</strong> — я не стал гадать. Назначь существующий проект.</span>
+          <button type="button" data-review-unassigned>Определить →</button>
+        </div>
+
         <section class="view is-active" data-view="tasks" aria-labelledby="view-title" data-task-register-only>
           <section class="capture-panel" aria-labelledby="capture-title">
             <div class="capture-copy">
@@ -127,7 +132,7 @@
 
         <section class="view" data-view="inbox" aria-labelledby="view-title" hidden data-task-register-only>
           <section class="list-panel">
-            <div class="list-toolbar"><div><h2>Задачи без проекта</h2><p>Назначь проект прямо в строке — задача сразу уйдёт из входящих.</p></div></div>
+            <div class="list-toolbar"><div><h2>Неопределённые задачи</h2><p>Я не смог уверенно выбрать существующий проект. Назначь его прямо в строке — задача сразу уйдёт из этой очереди.</p></div></div>
             <div class="task-table-head" aria-hidden="true"><span>№</span><span></span><span>Задача</span><span>Проект</span><span>Статус</span><span></span></div>
             <div id="inbox-task-list" class="task-list"></div>
           </section>
@@ -156,7 +161,7 @@
             <div class="analytics-head">
               <div>
                 <h2>Картина работы</h2>
-                <p>Считаются только записи этого браузера. Новая отметка «готово» получает сегодняшнюю дату; количество задач — не оценка пользы или денег.</p>
+                <p>Считаются только записи этого браузера. До 03:00 отметка «готово» относится к предыдущему рабочему дню; количество задач — не оценка пользы или денег.</p>
               </div>
               <label class="analytics-period"><span>Период</span><select id="analytics-period"><option value="7">7 дней</option><option value="30" selected>30 дней</option><option value="90">90 дней</option><option value="all">За всё время</option></select></label>
             </div>
@@ -248,7 +253,7 @@
 
     <nav class="mobile-nav" aria-label="Мобильная навигация">
       <button class="is-active" type="button" data-view-target="tasks" data-task-register-only><span>☷</span>Задачи</button>
-      <button type="button" data-view-target="inbox" data-task-register-only><span>⌑</span>Входящие</button>
+      <button type="button" data-view-target="inbox" data-task-register-only><span>!</span>Не определено</button>
       <button type="button" data-view-target="projects" data-task-register-only><span>□</span>Проекты</button>
       <button type="button" data-view-target="completed" data-task-register-only><span>✓</span>Готово</button>
       <button type="button" data-view-target="analytics" data-task-register-only><span>↗</span>Аналитика</button>
@@ -272,6 +277,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=20260911-6" defer></script>
+    <script src="./app.js?v=20260911-8" defer></script>
   </body>
 </html>
