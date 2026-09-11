@@ -286,7 +286,7 @@ function renderCompleted() {
     }).join("");
     return [
       '<section class="archive-group" data-archive-date="' + escapeHtml(date) + '">',
-      '<button class="archive-date-toggle" type="button" data-toggle-archive-group="' + escapeHtml(date) + '" aria-expanded="' + isExpanded + '" aria-controls="' + listId + '"><span class="archive-date-title">' + escapeHtml(archiveDateLabel(date)) + '</span><span class="archive-date-meta"><span>' + groupedTasks.length + " " + wordForm(groupedTasks.length, ["задача", "задачи", "задач"]) + '</span><span class="archive-chevron" aria-hidden="true">⌄</span></span></button>',
+      '<button class="archive-date-toggle" type="button" data-toggle-archive-group="' + escapeHtml(date) + '" aria-expanded="' + isExpanded + '" aria-controls="' + listId + '"><span class="archive-date-leading"><span class="archive-date-title">' + escapeHtml(archiveDateLabel(date)) + '</span><span class="archive-chevron" aria-hidden="true"></span></span><span class="archive-date-meta">' + groupedTasks.length + " " + wordForm(groupedTasks.length, ["задача", "задачи", "задач"]) + '</span></button>',
       '<div class="archive-group-list" id="' + listId + '"' + (isExpanded ? "" : " hidden") + ">" + rows + "</div>",
       "</section>",
     ].join("");
